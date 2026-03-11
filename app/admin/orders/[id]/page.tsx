@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import OrderChat from '@/app/components/OrderChat';
 
-type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
+type OrderStatus = 'waiting' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
 type Order = {
   id: string;
@@ -36,6 +36,7 @@ type Order = {
 };
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
+  waiting: 'bg-orange-100 text-orange-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   successful: 'bg-green-100 text-green-800',
@@ -61,6 +62,8 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
     </div>
   );
 }
+
+const FINAL_STATUSES: OrderStatus[] = ['successful', 'failed', 'cancelled'];
 
 export default function AdminOrderDetailPage() {
   const params = useParams();
@@ -112,7 +115,7 @@ export default function AdminOrderDetailPage() {
       await fetch(`/api/admin/orders/${order.id}`, {
         method: 'PATCH',
         headers: authHeaders(),
-        body: JSON.stringify({ status: order.status, adminNote: noteValue }),
+        body: JSON.stringify({ adminNote: noteValue }),
       });
       await loadOrder();
     } finally {
@@ -127,6 +130,8 @@ export default function AdminOrderDetailPage() {
       <Link href="/admin/orders" className="text-green-700 hover:underline text-sm">← Back to Orders</Link>
     </div>
   );
+
+  const isFinal = FINAL_STATUSES.includes(order.status);
 
   return (
     <div className="p-6 max-w-4xl">
@@ -202,25 +207,55 @@ export default function AdminOrderDetailPage() {
 
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="font-semibold text-gray-800 mb-3">Status</h2>
-            <div className="flex items-center gap-3 mb-3">
+            <div className="flex items-center gap-3 mb-4">
               <span className={`px-3 py-1 rounded-full text-sm font-medium capitalize ${STATUS_COLORS[order.status]}`}>
                 {order.status}
               </span>
             </div>
-            <label className="block text-sm text-gray-600 mb-1">Change status:</label>
-            <select
-              value={order.status}
-              onChange={(e) => handleStatusChange(e.target.value as OrderStatus)}
-              disabled={updatingStatus}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-60"
-            >
-              <option value="pending">Pending</option>
-              <option value="processing">Processing</option>
-              <option value="successful">Successful</option>
-              <option value="failed">Failed</option>
-              <option value="cancelled">Cancelled</option>
-            </select>
-            {updatingStatus && <p className="text-xs text-gray-400 mt-1">Updating…</p>}
+
+            {isFinal ? (
+              <p className="text-sm text-gray-500">Order is {order.status}. No further actions available.</p>
+            ) : order.status === 'waiting' ? (
+              <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
+                <p className="text-sm text-orange-700 font-medium">⏳ Waiting for user to confirm crypto sent</p>
+                <p className="text-xs text-orange-600 mt-1">Action buttons will activate once user clicks &quot;I Have Sent Crypto&quot;</p>
+              </div>
+            ) : order.status === 'pending' ? (
+              <div className="flex flex-col gap-2">
+                <p className="text-sm text-gray-600 mb-1">User has confirmed sending crypto. Choose action:</p>
+                <button
+                  onClick={() => handleStatusChange('successful')}
+                  disabled={updatingStatus}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  {updatingStatus ? 'Updating…' : '✅ Mark Successful'}
+                </button>
+                <button
+                  onClick={() => handleStatusChange('failed')}
+                  disabled={updatingStatus}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  {updatingStatus ? 'Updating…' : '❌ Mark Failed'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => handleStatusChange('successful')}
+                  disabled={updatingStatus}
+                  className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  {updatingStatus ? 'Updating…' : '✅ Mark Successful'}
+                </button>
+                <button
+                  onClick={() => handleStatusChange('failed')}
+                  disabled={updatingStatus}
+                  className="w-full bg-red-600 hover:bg-red-700 disabled:bg-red-300 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                >
+                  {updatingStatus ? 'Updating…' : '❌ Mark Failed'}
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -244,9 +279,10 @@ export default function AdminOrderDetailPage() {
       </div>
 
       {/* Order Chat */}
-      <div className="mt-6">
+      <div className="mt-6" id="order-chat">
         <OrderChat orderId={order.id} orderStatus={order.status} isAdmin={true} />
       </div>
     </div>
   );
 }
+

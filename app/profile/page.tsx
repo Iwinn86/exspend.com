@@ -473,6 +473,14 @@ export default function ProfilePage() {
                       </div>
                     </div>
                   )}
+                  <div className="mt-3">
+                    <Link
+                      href="/profile/referrals"
+                      className="inline-flex items-center gap-1 text-sm text-green-700 font-medium hover:text-green-900 hover:underline"
+                    >
+                      View All Invited People →
+                    </Link>
+                  </div>
                 </>
               )}
             </div>

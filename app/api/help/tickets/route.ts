@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const { subject, message } = await request.json();
+    const { subject, message, attachmentUrl } = await request.json();
 
     if (!subject || !message) {
       return NextResponse.json({ error: 'Subject and message are required' }, { status: 400 });
@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
         userId: user.userId,
         subject,
         message,
+        ...(attachmentUrl ? { attachmentUrl } : {}),
       },
       include: { replies: true },
     });

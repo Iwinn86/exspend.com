@@ -17,8 +17,8 @@ export async function GET(request: NextRequest) {
     const rewards = await prisma.referralReward.findMany({
       orderBy: { createdAt: 'desc' },
       include: {
-        referrer: { select: { name: true, email: true } },
-        referredUser: { select: { name: true, email: true } },
+        referrer: { select: { name: true, email: true, kycVerified: true, isVerified: true } },
+        referredUser: { select: { name: true, email: true, kycVerified: true, isVerified: true } },
       },
     });
 

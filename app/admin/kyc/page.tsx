@@ -10,6 +10,9 @@ type KycEntry = {
   userEmail: string;
   documentType: string;
   documentNumber: string;
+  frontImage: string;
+  backImage?: string;
+  selfieImage: string;
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string;
   reviewedAt?: string;
@@ -28,6 +31,7 @@ export default function AdminKycPage() {
   const [rejectId, setRejectId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [actionMsg, setActionMsg] = useState<string | null>(null);
+  const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
 
   function loadKyc() {
     const token = getToken();
@@ -60,6 +64,10 @@ export default function AdminKycPage() {
     }
   }
 
+  function toggleDocs(id: string) {
+    setExpandedDocs(prev => ({ ...prev, [id]: !prev[id] }));
+  }
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-2">KYC Submissions</h1>
@@ -78,97 +86,136 @@ export default function AdminKycPage() {
       ) : entries.length === 0 ? (
         <p className="text-gray-400 text-sm">No KYC submissions yet.</p>
       ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
-                <tr>
-                  <th className="px-4 py-3 text-left">User</th>
-                  <th className="px-4 py-3 text-left">Document</th>
-                  <th className="px-4 py-3 text-left">Status</th>
-                  <th className="px-4 py-3 text-left">Submitted</th>
-                  <th className="px-4 py-3 text-left">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {entries.map(entry => (
-                  <tr key={entry.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-gray-800">{entry.userName}</p>
-                      <p className="text-gray-400 text-xs">{entry.userEmail}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <p className="text-gray-700">{entry.documentType}</p>
-                      <p className="text-gray-400 text-xs">{entry.documentNumber}</p>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[entry.status]}`}>
-                        {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
-                      </span>
-                      {entry.rejectionReason && (
-                        <p className="text-xs text-red-500 mt-1">{entry.rejectionReason}</p>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
-                      {new Date(entry.submittedAt).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-3">
-                      {entry.status === 'pending' && (
+        <div className="flex flex-col gap-4">
+          {entries.map(entry => (
+            <div key={entry.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-gray-50 text-gray-500 uppercase text-xs">
+                    <tr>
+                      <th className="px-4 py-3 text-left">User</th>
+                      <th className="px-4 py-3 text-left">Document</th>
+                      <th className="px-4 py-3 text-left">Status</th>
+                      <th className="px-4 py-3 text-left">Submitted</th>
+                      <th className="px-4 py-3 text-left">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-gray-800">{entry.userName}</p>
+                        <p className="text-gray-400 text-xs">{entry.userEmail}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-gray-700">{entry.documentType}</p>
+                        <p className="text-gray-400 text-xs">{entry.documentNumber}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[entry.status]}`}>
+                          {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
+                        </span>
+                        {entry.rejectionReason && (
+                          <p className="text-xs text-red-500 mt-1">{entry.rejectionReason}</p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                        {new Date(entry.submittedAt).toLocaleDateString()}
+                      </td>
+                      <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
                           <button
-                            onClick={() => handleAction(entry.id, 'approve')}
-                            className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500 transition-colors"
+                            onClick={() => toggleDocs(entry.id)}
+                            className="px-3 py-1 bg-blue-600 text-white rounded-lg text-xs font-medium hover:bg-blue-500 transition-colors mb-1"
                           >
-                            Approve
+                            {expandedDocs[entry.id] ? 'Hide Docs' : '🖼 View Documents'}
                           </button>
-                          {rejectId === entry.id ? (
-                            <div className="flex flex-col gap-1 mt-1">
-                              <input
-                                type="text"
-                                placeholder="Rejection reason"
-                                value={rejectReason}
-                                onChange={e => setRejectReason(e.target.value)}
-                                className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-red-400"
-                              />
-                              <div className="flex gap-1">
+                          {entry.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleAction(entry.id, 'approve')}
+                                className="px-3 py-1 bg-green-600 text-white rounded-lg text-xs font-medium hover:bg-green-500 transition-colors"
+                              >
+                                Approve
+                              </button>
+                              {rejectId === entry.id ? (
+                                <div className="flex flex-col gap-1 mt-1">
+                                  <input
+                                    type="text"
+                                    placeholder="Rejection reason"
+                                    value={rejectReason}
+                                    onChange={e => setRejectReason(e.target.value)}
+                                    className="px-2 py-1 border border-gray-300 rounded text-xs focus:outline-none focus:ring-1 focus:ring-red-400"
+                                  />
+                                  <div className="flex gap-1">
+                                    <button
+                                      onClick={() => handleAction(entry.id, 'reject', rejectReason)}
+                                      disabled={!rejectReason.trim()}
+                                      className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-500 disabled:opacity-50"
+                                    >
+                                      Confirm
+                                    </button>
+                                    <button
+                                      onClick={() => { setRejectId(null); setRejectReason(''); }}
+                                      className="px-2 py-1 border border-gray-300 text-gray-500 rounded text-xs hover:bg-gray-50"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
                                 <button
-                                  onClick={() => handleAction(entry.id, 'reject', rejectReason)}
-                                  disabled={!rejectReason.trim()}
-                                  className="px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-500 disabled:opacity-50"
+                                  onClick={() => setRejectId(entry.id)}
+                                  className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-500 transition-colors"
                                 >
-                                  Confirm
+                                  Reject
                                 </button>
-                                <button
-                                  onClick={() => { setRejectId(null); setRejectReason(''); }}
-                                  className="px-2 py-1 border border-gray-300 text-gray-500 rounded text-xs hover:bg-gray-50"
-                                >
-                                  Cancel
-                                </button>
-                              </div>
-                            </div>
-                          ) : (
-                            <button
-                              onClick={() => setRejectId(entry.id)}
-                              className="px-3 py-1 bg-red-600 text-white rounded-lg text-xs font-medium hover:bg-red-500 transition-colors"
-                            >
-                              Reject
-                            </button>
+                              )}
+                            </>
+                          )}
+                          {entry.status !== 'pending' && (
+                            <span className="text-xs text-gray-400">
+                              {entry.reviewedAt ? new Date(entry.reviewedAt).toLocaleDateString() : '—'}
+                            </span>
                           )}
                         </div>
-                      )}
-                      {entry.status !== 'pending' && (
-                        <span className="text-xs text-gray-400">
-                          {entry.reviewedAt ? new Date(entry.reviewedAt).toLocaleDateString() : '—'}
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {expandedDocs[entry.id] && (
+                <div className="px-4 py-4 border-t border-gray-100 bg-gray-50">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-3">Uploaded Documents</p>
+                  <div className="flex flex-wrap gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Front ID</p>
+                      <a href={entry.frontImage} target="_blank" rel="noopener noreferrer">
+                        <img src={entry.frontImage} alt="Front ID" className="w-full max-w-xs rounded border hover:opacity-90 transition-opacity" />
+                      </a>
+                    </div>
+                    {entry.backImage && (
+                      <div>
+                        <p className="text-xs text-gray-500 mb-1">Back ID</p>
+                        <a href={entry.backImage} target="_blank" rel="noopener noreferrer">
+                          <img src={entry.backImage} alt="Back ID" className="w-full max-w-xs rounded border hover:opacity-90 transition-opacity" />
+                        </a>
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Selfie</p>
+                      <a href={entry.selfieImage} target="_blank" rel="noopener noreferrer">
+                        <img src={entry.selfieImage} alt="Selfie" className="w-full max-w-xs rounded border hover:opacity-90 transition-opacity" />
+                        </a>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
   );
 }
+

@@ -13,7 +13,7 @@ function requireAdmin(request: NextRequest) {
   return user?.isAdmin ? user : null;
 }
 
-const VALID_STATUSES: OrderStatus[] = ['pending', 'processing', 'successful', 'failed', 'cancelled'];
+const VALID_STATUSES: OrderStatus[] = ['waiting', 'pending', 'processing', 'successful', 'failed', 'cancelled'];
 const EMAIL_STATUSES: OrderStatus[] = ['processing', 'successful', 'failed'];
 
 // GET /api/admin/orders/[id] — get single order with full details
@@ -58,20 +58,26 @@ export async function PATCH(
     const body = await request.json();
     const { status, adminNote } = body as { status?: OrderStatus; adminNote?: string };
 
-    if (!status || !VALID_STATUSES.includes(status)) {
+    if (status !== undefined && !VALID_STATUSES.includes(status)) {
       return NextResponse.json(
         { error: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}` },
         { status: 400 }
       );
     }
 
+    // Only allow note-only updates when no status is provided
+    const updateData: Record<string, unknown> = {};
+    if (status !== undefined) updateData.status = status;
+    if (adminNote !== undefined) updateData.adminNote = adminNote;
+    if (status === 'successful') updateData.completedAt = new Date();
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: 'Nothing to update' }, { status: 400 });
+    }
+
     const updated = await prisma.order.update({
       where: { id },
-      data: {
-        status,
-        ...(adminNote !== undefined ? { adminNote } : {}),
-        ...(status === 'successful' ? { completedAt: new Date() } : {}),
-      },
+      data: updateData,
       include: {
         user: {
           select: { name: true, email: true },
@@ -80,7 +86,7 @@ export async function PATCH(
     });
 
     // Fire-and-forget email for processing/successful/failed
-    if (EMAIL_STATUSES.includes(status)) {
+    if (status && EMAIL_STATUSES.includes(status)) {
       Promise.resolve().then(async () => {
         const sent = await sendEmail({
           to: updated.user.email,
@@ -119,7 +125,7 @@ export async function PATCH(
       },
     };
 
-    const cfg = notifConfig[status];
+    const cfg = status ? notifConfig[status] : undefined;
     if (cfg) {
       Promise.resolve().then(async () => {
         await prisma.notification.create({

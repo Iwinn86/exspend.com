@@ -5,9 +5,9 @@ import Link from 'next/link';
 import { getToken } from '@/app/lib/auth';
 
 type OrderType = 'spend' | 'buy' | 'sell';
-type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
+type OrderStatus = 'waiting' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
-type Tab = 'all' | 'pending' | 'successful' | 'failed';
+type Tab = 'all' | 'pending' | 'successful' | 'failed' | 'waiting';
 
 type ApiOrder = {
   id: string;
@@ -24,6 +24,7 @@ type ApiOrder = {
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'all', label: 'All' },
+  { id: 'waiting', label: 'Waiting' },
   { id: 'pending', label: 'Pending' },
   { id: 'successful', label: 'Successful' },
   { id: 'failed', label: 'Failed / Cancelled' },
@@ -42,6 +43,7 @@ const ORDER_TYPE_LABEL: Record<OrderType, string> = {
 };
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
+  waiting: 'bg-orange-100 text-orange-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   successful: 'bg-green-100 text-green-800',
@@ -50,6 +52,7 @@ const STATUS_BADGE: Record<OrderStatus, string> = {
 };
 
 const BORDER_COLOR: Record<OrderStatus, string> = {
+  waiting: 'border-orange-400',
   pending: 'border-yellow-400',
   processing: 'border-blue-400',
   successful: 'border-green-500',
@@ -165,6 +168,7 @@ export default function OrdersPage() {
           <p className="text-lg font-medium text-green-800">No orders here yet</p>
           <p className="text-sm mt-1 text-gray-400">
             {activeTab === 'all' && 'Your transactions will appear here.'}
+            {activeTab === 'waiting' && 'No orders waiting for crypto.'}
             {activeTab === 'pending' && 'No pending transactions.'}
             {activeTab === 'successful' && 'No successful transactions yet.'}
             {activeTab === 'failed' && 'No failed or cancelled transactions.'}
@@ -216,12 +220,18 @@ export default function OrdersPage() {
                 <p className="text-gray-400 text-xs mt-1">📅 {formatDate(order.createdAt)}</p>
               </div>
 
-              <div className="mt-3">
+              <div className="mt-3 flex gap-2 flex-wrap">
                 <Link
                   href={`/orders/${order.id}`}
                   className="inline-block text-xs font-semibold text-green-700 border border-green-400 hover:bg-green-50 px-3 py-1 rounded-lg transition-colors"
                 >
                   View Details →
+                </Link>
+                <Link
+                  href={`/help?orderId=${order.id}`}
+                  className="inline-block text-xs font-semibold text-orange-700 border border-orange-300 hover:bg-orange-50 px-3 py-1 rounded-lg transition-colors"
+                >
+                  🎫 Open Ticket
                 </Link>
               </div>
             </div>

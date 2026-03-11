@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
-type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
+type OrderStatus = 'waiting' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 type FilterTab = 'all' | OrderStatus;
 
 type Order = {
@@ -23,7 +23,6 @@ type Order = {
   adminNote?: string | null;
   createdAt: string;
   orderType: string;
-  // Payment method fields (for buy orders)
   paymentMethod?: string | null;
   paymentBankName?: string | null;
   paymentBankAcct?: string | null;
@@ -34,12 +33,17 @@ type Order = {
 };
 
 const STATUS_COLORS: Record<OrderStatus, string> = {
+  waiting: 'bg-orange-100 text-orange-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   successful: 'bg-green-100 text-green-800',
   failed: 'bg-red-100 text-red-800',
   cancelled: 'bg-gray-100 text-gray-600',
 };
+
+function shortId(id: string) {
+  return '#' + id.slice(0, 8).toUpperCase();
+}
 
 function getToken() {
   if (typeof window === 'undefined') return null;
@@ -89,20 +93,6 @@ export default function AdminOrdersPage() {
     loadOrders();
   }
 
-  async function markAllPendingSuccessful() {
-    const pending = orders.filter(o => o.status === 'pending');
-    await Promise.all(
-      pending.map(o =>
-        fetch(`/api/admin/orders/${o.id}`, {
-          method: 'PATCH',
-          headers: authHeaders(),
-          body: JSON.stringify({ status: 'successful' }),
-        })
-      )
-    );
-    loadOrders();
-  }
-
   function toggleSort(field: keyof Order) {
     if (sortField === field) {
       setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
@@ -140,7 +130,8 @@ export default function AdminOrdersPage() {
           (o.recipient ?? '').toLowerCase().includes(q) ||
           o.service.toLowerCase().includes(q) ||
           (o.user?.name ?? '').toLowerCase().includes(q) ||
-          (o.user?.email ?? '').toLowerCase().includes(q)
+          (o.user?.email ?? '').toLowerCase().includes(q) ||
+          o.id.toLowerCase().includes(q)
         );
       }
       return true;
@@ -154,10 +145,11 @@ export default function AdminOrdersPage() {
 
   const tabs: { label: string; value: FilterTab }[] = [
     { label: 'All', value: 'all' },
+    { label: 'Waiting', value: 'waiting' },
     { label: 'Pending', value: 'pending' },
-    { label: 'Processing', value: 'processing' },
     { label: 'Successful', value: 'successful' },
     { label: 'Failed', value: 'failed' },
+    { label: 'Cancelled', value: 'cancelled' },
   ];
 
   function SortIcon({ field }: { field: keyof Order }) {
@@ -165,35 +157,29 @@ export default function AdminOrdersPage() {
     return <span className="ml-1">{sortDir === 'asc' ? '↑' : '↓'}</span>;
   }
 
+  const FINAL_STATUSES: OrderStatus[] = ['successful', 'failed', 'cancelled'];
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-gray-800">Orders Management</h1>
-        <div className="flex gap-2">
-          <button
-            onClick={loadOrders}
-            className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
-          >
-            🔄 Refresh
-          </button>
-          <button
-            onClick={markAllPendingSuccessful}
-            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-          >
-            Mark all pending as successful
-          </button>
-        </div>
+        <button
+          onClick={loadOrders}
+          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm font-medium hover:bg-gray-200 transition-colors"
+        >
+          🔄 Refresh
+        </button>
       </div>
 
       <input
         type="text"
-        placeholder="Search by recipient, service, or user…"
+        placeholder="Search by recipient, service, user or order ID…"
         value={search}
         onChange={e => setSearch(e.target.value)}
         className="w-full mb-4 px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
       />
 
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
         {tabs.map(t => (
           <button
             key={t.value}
@@ -219,6 +205,7 @@ export default function AdminOrdersPage() {
                 <tr>
                   {(
                     [
+                      { label: 'Order ID', field: 'id' },
                       { label: 'Date/Time', field: 'createdAt' },
                       { label: 'Customer', field: 'user' },
                       { label: 'Service', field: 'service' },
@@ -245,13 +232,16 @@ export default function AdminOrdersPage() {
               <tbody className="divide-y divide-gray-100">
                 {filtered.length === 0 ? (
                   <tr>
-                    <td colSpan={10} className="px-4 py-8 text-center text-gray-400">
+                    <td colSpan={11} className="px-4 py-8 text-center text-gray-400">
                       No orders found
                     </td>
                   </tr>
                 ) : (
                   filtered.map(order => (
                     <tr key={order.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">
+                        {shortId(order.id)}
+                      </td>
                       <td className="px-4 py-3 whitespace-nowrap text-gray-600">
                         {new Date(order.createdAt).toLocaleString()}
                       </td>
@@ -261,7 +251,6 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-4 py-3 text-gray-800">{order.service}</td>
                       <td className="px-4 py-3">
-                        {/* Recipient: account number + account holder name together */}
                         {order.serviceType === 'bank' ? (
                           <div className="space-y-0.5">
                             {order.bankName && (
@@ -372,17 +361,30 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex flex-col gap-1">
-                          <select
-                            value={order.status}
-                            onChange={e => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="successful">Successful</option>
-                            <option value="failed">Failed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
+                          {FINAL_STATUSES.includes(order.status) ? (
+                            <span className={`px-2 py-1 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[order.status]}`}>
+                              {order.status}
+                            </span>
+                          ) : order.status === 'waiting' ? (
+                            <span className="text-xs text-orange-600 font-medium">
+                              ⏳ Waiting for user
+                            </span>
+                          ) : order.status === 'pending' ? (
+                            <div className="flex flex-col gap-1">
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'successful')}
+                                className="text-xs px-2 py-1 bg-green-600 text-white rounded hover:bg-green-700"
+                              >
+                                ✅ Successful
+                              </button>
+                              <button
+                                onClick={() => handleStatusChange(order.id, 'failed')}
+                                className="text-xs px-2 py-1 bg-red-600 text-white rounded hover:bg-red-700"
+                              >
+                                ❌ Failed
+                              </button>
+                            </div>
+                          ) : null}
                           <Link
                             href={`/admin/orders/${order.id}`}
                             className="text-xs text-green-700 hover:underline whitespace-nowrap"
@@ -402,3 +404,4 @@ export default function AdminOrdersPage() {
     </div>
   );
 }
+

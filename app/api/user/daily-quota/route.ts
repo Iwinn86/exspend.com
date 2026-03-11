@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokenFromRequest, verifyToken } from '@/app/api/lib/jwt';
 import { prisma } from '@/app/api/lib/prisma';
-import { DAILY_SPEND_LIMIT_GHS } from '@/app/api/lib/referral';
 
 function requireAuth(request: NextRequest) {
   const token = getTokenFromRequest(request);
@@ -18,23 +17,30 @@ export async function GET(request: NextRequest) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Calculate total spent today from spend orders (not cancelled)
+    // Get user's kycVerified status to determine limit
+    const userRecord = await prisma.user.findUnique({
+      where: { id: user.userId },
+      select: { kycVerified: true },
+    });
+    const dailyLimit = userRecord?.kycVerified ? 30000 : 5000;
+
+    // Only successful spend AND sell orders count toward daily quota
     const result = await prisma.order.aggregate({
       where: {
         userId: user.userId,
-        orderType: 'spend',
-        status: { notIn: ['cancelled', 'failed'] },
+        orderType: { in: ['spend', 'sell'] },
+        status: 'successful',
         createdAt: { gte: today },
       },
       _sum: { amountGhs: true },
     });
 
     const totalSpent = result._sum.amountGhs ?? 0;
-    const remaining = Math.max(0, DAILY_SPEND_LIMIT_GHS - totalSpent);
+    const remaining = Math.max(0, dailyLimit - totalSpent);
 
     return NextResponse.json({
       totalSpent,
-      dailyLimit: DAILY_SPEND_LIMIT_GHS,
+      dailyLimit,
       remaining,
       date: today.toISOString().split('T')[0],
     });

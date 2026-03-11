@@ -19,7 +19,17 @@ export async function GET(request: NextRequest) {
     });
 
     const enriched = kyc.map((entry: typeof kyc[number]) => ({
-      ...entry,
+      id: entry.id,
+      userId: entry.userId,
+      documentType: entry.documentType,
+      documentNumber: entry.documentNumber,
+      frontImage: entry.frontImage,
+      backImage: entry.backImage,
+      selfieImage: entry.selfieImage,
+      status: entry.status,
+      rejectionReason: entry.rejectionReason,
+      submittedAt: entry.submittedAt,
+      reviewedAt: entry.reviewedAt,
       userName: entry.user.name,
       userEmail: entry.user.email,
     }));

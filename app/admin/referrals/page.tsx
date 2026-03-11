@@ -14,8 +14,8 @@ type ReferralReward = {
   approvedAt: string | null;
   sentAt: string | null;
   createdAt: string;
-  referrer: { name: string; email: string };
-  referredUser: { name: string; email: string };
+  referrer: { name: string; email: string; kycVerified: boolean; isVerified: boolean };
+  referredUser: { name: string; email: string; kycVerified: boolean; isVerified: boolean };
 };
 
 const STATUS_BADGE: Record<ReferralReward['status'], string> = {
@@ -107,51 +107,83 @@ export default function AdminReferralsPage() {
         <p className="text-gray-400 text-sm">No referral rewards found.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {filtered.map(reward => (
-            <div key={reward.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
-              <div className="flex items-start justify-between gap-4 flex-wrap">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[reward.status]}`}>
-                      {reward.status.charAt(0).toUpperCase() + reward.status.slice(1)}
-                    </span>
-                    <span className="text-xs text-gray-400">{new Date(reward.createdAt).toLocaleDateString()}</span>
+          {filtered.map(reward => {
+            const bothVerified = reward.referrer.kycVerified && reward.referredUser.kycVerified;
+            return (
+              <div key={reward.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_BADGE[reward.status]}`}>
+                        {reward.status.charAt(0).toUpperCase() + reward.status.slice(1)}
+                      </span>
+                      <span className="text-xs text-gray-400">{new Date(reward.createdAt).toLocaleDateString()}</span>
+                    </div>
+                    <p className="text-sm font-medium text-gray-900 mb-2">
+                      🎁 200 MB on <strong>{reward.rewardNetwork.toUpperCase()}</strong>
+                      {reward.rewardPhone && <span className="text-gray-500"> → {reward.rewardPhone}</span>}
+                    </p>
+                    <div className="text-xs text-gray-600 flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span>Referrer: <strong>{reward.referrer.name}</strong> ({reward.referrer.email})</span>
+                        {reward.referrer.kycVerified
+                          ? <span className="text-green-600 font-semibold">✅ KYC Verified</span>
+                          : <span className="text-orange-600 font-semibold">⚠️ Not KYC Verified</span>}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span>Referred: <strong>{reward.referredUser.name}</strong> ({reward.referredUser.email})</span>
+                        {reward.referredUser.kycVerified
+                          ? <span className="text-green-600 font-semibold">✅ KYC Verified</span>
+                          : <span className="text-orange-600 font-semibold">⚠️ Not KYC Verified</span>}
+                      </div>
+                    </div>
+                    {!bothVerified && reward.status === 'pending' && (
+                      <div className="mt-2 flex flex-col gap-0.5">
+                        {!reward.referrer.kycVerified && (
+                          <p className="text-xs text-orange-600">⚠️ Referrer not KYC verified</p>
+                        )}
+                        {!reward.referredUser.kycVerified && (
+                          <p className="text-xs text-orange-600">⚠️ Referred user not KYC verified</p>
+                        )}
+                      </div>
+                    )}
                   </div>
-                  <p className="text-sm font-medium text-gray-900">
-                    🎁 200 MB on <strong>{reward.rewardNetwork.toUpperCase()}</strong>
-                    {reward.rewardPhone && <span className="text-gray-500"> → {reward.rewardPhone}</span>}
-                  </p>
-                  <div className="text-xs text-gray-500 mt-1 flex flex-col gap-0.5">
-                    <span>Referrer: <strong>{reward.referrer.name}</strong> ({reward.referrer.email})</span>
-                    <span>Referred: <strong>{reward.referredUser.name}</strong> ({reward.referredUser.email})</span>
+                  <div className="flex gap-2">
+                    {reward.status === 'pending' && (
+                      <button
+                        onClick={() => handleApprove(reward.id)}
+                        disabled={!bothVerified}
+                        title={!bothVerified ? 'Both users must be KYC verified to approve' : ''}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                          bothVerified
+                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        Approve
+                      </button>
+                    )}
+                    {reward.status === 'approved' && (
+                      <button
+                        onClick={() => handleSendBonus(reward.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        Mark as Sent ✅
+                      </button>
+                    )}
+                    {reward.status === 'sent' && (
+                      <span className="text-green-700 text-sm font-semibold">
+                        ✅ Bonus Sent {reward.sentAt ? new Date(reward.sentAt).toLocaleDateString() : ''}
+                      </span>
+                    )}
                   </div>
-                </div>
-                <div className="flex gap-2">
-                  {reward.status === 'pending' && (
-                    <button
-                      onClick={() => handleApprove(reward.id)}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Approve
-                    </button>
-                  )}
-                  {reward.status === 'approved' && (
-                    <button
-                      onClick={() => handleSendBonus(reward.id)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                    >
-                      Mark Sent ✅
-                    </button>
-                  )}
-                  {reward.status === 'sent' && (
-                    <span className="text-green-700 text-sm font-medium">✅ Bonus Sent {reward.sentAt ? new Date(reward.sentAt).toLocaleDateString() : ''}</span>
-                  )}
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
   );
 }
+

@@ -7,7 +7,7 @@ import { getToken } from '@/app/lib/auth';
 import OrderChat from '@/app/components/OrderChat';
 
 type OrderType = 'spend' | 'buy' | 'sell';
-type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
+type OrderStatus = 'waiting' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
 type ApiOrder = {
   id: string;
@@ -24,6 +24,7 @@ type ApiOrder = {
 };
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
+  waiting: 'bg-orange-100 text-orange-800',
   pending: 'bg-yellow-100 text-yellow-800',
   processing: 'bg-blue-100 text-blue-800',
   successful: 'bg-green-100 text-green-800',
@@ -118,16 +119,24 @@ export default function OrderDetailPage() {
     if (!order || !token) return;
     setSending(true);
     try {
-      await fetch(`/api/orders/${order.id}`, {
-        method: 'PATCH',
+      await fetch(`/api/orders/${order.id}/confirm-sent`, {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ status: 'processing' }),
       });
-      router.push('/orders');
+      // Reload order to show updated status
+      const res = await fetch(`/api/orders/${order.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setOrder(data.order ?? data);
+      }
     } catch {
+      // ignore
+    } finally {
       setSending(false);
     }
   }
@@ -192,8 +201,8 @@ export default function OrderDetailPage() {
           <DetailRow label="Created" value={formatDate(order.createdAt)} />
         </div>
 
-        {/* ── PENDING: SPEND ── show wallet + "I've sent" button */}
-        {order.status === 'pending' && order.orderType === 'spend' && (
+        {/* ── WAITING: SPEND ── show wallet + "I've sent" button */}
+        {order.status === 'waiting' && order.orderType === 'spend' && (
           <div className="mb-5">
             <div className="bg-green-50 border border-green-300 rounded-xl p-4 mb-3">
               <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
@@ -226,13 +235,13 @@ export default function OrderDetailPage() {
               disabled={sending}
               className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
             >
-              {sending ? 'Processing…' : "I've Sent the Payment →"}
+              {sending ? 'Processing…' : "I Have Sent Crypto →"}
             </button>
           </div>
         )}
 
-        {/* ── PENDING: SELL ── show wallet address for user to send to */}
-        {order.status === 'pending' && order.orderType === 'sell' && (
+        {/* ── WAITING: SELL ── show wallet address for user to send to */}
+        {order.status === 'waiting' && order.orderType === 'sell' && (
           <div className="mb-5">
             <div className="bg-green-50 border border-green-300 rounded-xl p-4">
               <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
@@ -257,9 +266,16 @@ export default function OrderDetailPage() {
                 ⚠️ Send on the correct network. Wrong network = permanent loss of funds.
               </div>
             </div>
-            <p className="text-xs text-gray-400 text-center mt-3">
+            <p className="text-xs text-gray-400 text-center mt-3 mb-3">
               ⏱ Please complete payment within 30 minutes of order creation.
             </p>
+            <button
+              onClick={handleSentPayment}
+              disabled={sending}
+              className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+            >
+              {sending ? 'Processing…' : "I Have Sent Crypto →"}
+            </button>
           </div>
         )}
 
@@ -315,13 +331,17 @@ export default function OrderDetailPage() {
             <p className="font-semibold text-red-800 text-sm mb-1">
               {order.status === 'cancelled' ? 'Order Cancelled' : 'Transaction Failed'}
             </p>
-            <p className="text-xs text-gray-500">
-              If you believe this is an error, please{' '}
-              <Link href="/help" className="text-green-700 underline">
-                contact support
-              </Link>
-              .
+            <p className="text-xs text-gray-500 mb-2">
+              {order.status === 'cancelled' && new Date(order.createdAt) < new Date(Date.now() - 30 * 60 * 1000)
+                ? '⚠️ This order was auto-cancelled due to timeout (30 min).'
+                : 'If you believe this is an error, please contact support.'}
             </p>
+            <Link
+              href={`/help?orderId=${order.id}`}
+              className="inline-block text-xs font-semibold text-green-700 border border-green-400 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors"
+            >
+              🎫 Open Support Ticket
+            </Link>
           </div>
         )}
 
@@ -343,7 +363,7 @@ export default function OrderDetailPage() {
         </Link>
 
         {/* Order Chat */}
-        <div className="mt-6">
+        <div className="mt-6" id="order-chat">
           <OrderChat orderId={order.id} orderStatus={order.status} />
         </div>
       </div>
