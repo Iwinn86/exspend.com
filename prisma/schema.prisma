@@ -1,0 +1,189 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id             String          @id @default(uuid())
+  name           String
+  email          String          @unique
+  phone          String
+  passwordHash   String
+  isAdmin        Boolean         @default(false)
+  isVerified     Boolean         @default(false)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  orders         Order[]
+  kyc            KycEntry[]
+  helpTickets    HelpTicket[]
+  receipts       Receipt[]
+  passwordResets PasswordReset[]
+  notifications  Notification[]
+}
+
+model Order {
+  id                String      @id @default(uuid())
+  userId            String
+  user              User        @relation(fields: [userId], references: [id])
+  orderType         OrderType
+  serviceType       ServiceType
+  service           String
+  recipient         String?
+  recipientName     String?
+  bankName          String?
+  reference         String?
+  bundleLabel       String?
+  amountGhs         Float
+  cryptoAsset       String
+  cryptoAmount      String
+  cryptoRateGhs     Float
+  cryptoRateUsd     Float?
+  userWalletAddress String?
+  sellPayoutPhone   String?
+  sellPayoutBank    String?
+  status            OrderStatus @default(pending)
+  adminNote         String?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+  completedAt       DateTime?
+  receipt           Receipt?
+}
+
+enum OrderType {
+  spend
+  buy
+  sell
+}
+
+enum ServiceType {
+  bank
+  momo
+  airtime
+  data
+  buy_crypto
+  sell_crypto
+}
+
+enum OrderStatus {
+  pending
+  processing
+  successful
+  failed
+  cancelled
+}
+
+model Receipt {
+  id          String   @id @default(uuid())
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  receiptData Json
+  createdAt   DateTime @default(now())
+}
+
+model KycEntry {
+  id              String    @id @default(uuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id])
+  documentType    String
+  documentNumber  String
+  frontImage      String
+  backImage       String?
+  selfieImage     String
+  status          KycStatus @default(pending)
+  rejectionReason String?
+  submittedAt     DateTime  @default(now())
+  reviewedAt      DateTime?
+}
+
+enum KycStatus {
+  pending
+  approved
+  rejected
+}
+
+model ExchangeRate {
+  id         String   @id @default(uuid())
+  ghsPerUsd  Float
+  setByAdmin String
+  note       String?
+  createdAt  DateTime @default(now())
+}
+
+model WalletSettings {
+  id           String   @id @default("singleton")
+  USDT_TRC20   String   @default("")
+  USDT_BEP20   String   @default("")
+  USDT_POLYGON String   @default("")
+  USDC_BEP20   String   @default("")
+  USDC_POLYGON String   @default("")
+  BTC          String   @default("")
+  BNB          String   @default("")
+  ETH          String   @default("")
+  BINANCE_PAY  String   @default("")
+  BYBIT_PAY    String   @default("")
+  updatedAt    DateTime @updatedAt
+}
+
+model DataBundle {
+  id        String   @id @default(uuid())
+  network   String
+  label     String
+  priceGhs  Float
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model HelpTicket {
+  id        String       @id @default(uuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id])
+  subject   String
+  message   String
+  status    TicketStatus @default(open)
+  replies   HelpReply[]
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+model HelpReply {
+  id        String     @id @default(uuid())
+  ticketId  String
+  ticket    HelpTicket @relation(fields: [ticketId], references: [id])
+  fromAdmin Boolean    @default(false)
+  message   String
+  createdAt DateTime   @default(now())
+}
+
+enum TicketStatus {
+  open
+  in_progress
+  resolved
+  closed
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id])
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+}
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  link      String?
+  createdAt DateTime @default(now())
+}
