@@ -51,12 +51,22 @@ export default function SignupPage() {
       setError('Passwords do not match');
       return;
     }
+
+    setLoading(true);
+    // If referral code entered but not yet validated, validate it now
+    if (referralCode.trim() && referralValid === null) {
+      await checkReferralCode(referralCode);
+      // Re-check after validation completes
+      setLoading(false);
+      setError('Please wait for referral code validation to complete, then try again.');
+      return;
+    }
     if (referralCode.trim() && referralValid === false) {
+      setLoading(false);
       setError('Invalid referral code. Please remove it or enter a valid code.');
       return;
     }
 
-    setLoading(true);
     const result = await registerUser(name, email, phone, password, referralCode.trim() || undefined);
     setLoading(false);
 

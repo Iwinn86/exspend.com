@@ -4,6 +4,7 @@ import { prisma } from '@/app/api/lib/prisma';
 import { sendEmail } from '@/app/api/lib/email';
 import { orderConfirmationEmail, adminNewOrderEmail } from '@/app/api/lib/email-templates';
 import { DEFAULT_WALLET_ADDRESSES } from '@/app/lib/crypto';
+import { DAILY_SPEND_LIMIT_GHS } from '@/app/api/lib/referral';
 import { OrderType, ServiceType } from '@prisma/client';
 
 function requireAuth(request: NextRequest) {
@@ -69,7 +70,6 @@ export async function POST(request: NextRequest) {
     // Check daily quota for spend orders
     const ghsAmount = Number(amountGhs);
     if (orderType === 'spend') {
-      const DAILY_LIMIT = 30000;
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const quotaResult = await prisma.order.aggregate({
@@ -82,8 +82,8 @@ export async function POST(request: NextRequest) {
         _sum: { amountGhs: true },
       });
       const totalSpentToday = quotaResult._sum.amountGhs ?? 0;
-      if (totalSpentToday + ghsAmount > DAILY_LIMIT) {
-        const remaining = Math.max(0, DAILY_LIMIT - totalSpentToday);
+      if (totalSpentToday + ghsAmount > DAILY_SPEND_LIMIT_GHS) {
+        const remaining = Math.max(0, DAILY_SPEND_LIMIT_GHS - totalSpentToday);
         return NextResponse.json({
           error: `Daily spending limit reached. You have GHS ${remaining.toFixed(2)} remaining today.`,
         }, { status: 400 });

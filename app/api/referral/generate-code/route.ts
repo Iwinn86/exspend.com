@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { randomBytes } from 'crypto';
 import { getTokenFromRequest, verifyToken } from '@/app/api/lib/jwt';
 import { prisma } from '@/app/api/lib/prisma';
+import { generateUniqueReferralCode } from '@/app/api/lib/referral';
 
 function requireAuth(request: NextRequest) {
   const token = getTokenFromRequest(request);
@@ -25,18 +25,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Generate unique code
-    let code: string;
-    let attempts = 0;
-    do {
-      code = `EXP-${randomBytes(6).toString('hex').toUpperCase()}`;
-      const taken = await prisma.user.findUnique({ where: { referralCode: code } });
-      if (!taken) break;
-      attempts++;
-    } while (attempts < 10);
+    const code = await generateUniqueReferralCode();
 
     const updated = await prisma.user.update({
       where: { id: user.userId },
-      data: { referralCode: code! },
+      data: { referralCode: code },
       select: { referralCode: true },
     });
 

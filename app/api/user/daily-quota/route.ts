@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokenFromRequest, verifyToken } from '@/app/api/lib/jwt';
 import { prisma } from '@/app/api/lib/prisma';
+import { DAILY_SPEND_LIMIT_GHS } from '@/app/api/lib/referral';
 
 function requireAuth(request: NextRequest) {
   const token = getTokenFromRequest(request);
@@ -14,7 +15,6 @@ export async function GET(request: NextRequest) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
-    const DAILY_LIMIT = 30000;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -30,11 +30,11 @@ export async function GET(request: NextRequest) {
     });
 
     const totalSpent = result._sum.amountGhs ?? 0;
-    const remaining = Math.max(0, DAILY_LIMIT - totalSpent);
+    const remaining = Math.max(0, DAILY_SPEND_LIMIT_GHS - totalSpent);
 
     return NextResponse.json({
       totalSpent,
-      dailyLimit: DAILY_LIMIT,
+      dailyLimit: DAILY_SPEND_LIMIT_GHS,
       remaining,
       date: today.toISOString().split('T')[0],
     });

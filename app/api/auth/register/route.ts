@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'crypto';
 import { prisma } from '@/app/api/lib/prisma';
 import { signToken } from '@/app/api/lib/jwt';
+import { generateUniqueReferralCode } from '@/app/api/lib/referral';
 
 export async function POST(request: NextRequest) {
   try {
@@ -40,14 +40,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await bcrypt.hash(password, 10);
 
     // Generate a unique referral code for the new user
-    let newUserReferralCode: string;
-    let attempts = 0;
-    do {
-      newUserReferralCode = `EXP-${randomBytes(6).toString('hex').toUpperCase()}`;
-      const taken = await prisma.user.findUnique({ where: { referralCode: newUserReferralCode } });
-      if (!taken) break;
-      attempts++;
-    } while (attempts < 10);
+    const newUserReferralCode = await generateUniqueReferralCode();
 
     const newUser = await prisma.user.create({
       data: {
@@ -56,7 +49,7 @@ export async function POST(request: NextRequest) {
         phone,
         passwordHash,
         isAdmin: email === 'admin@exspend.com',
-        referralCode: newUserReferralCode!,
+        referralCode: newUserReferralCode,
         referredBy: referrerId,
       },
     });
