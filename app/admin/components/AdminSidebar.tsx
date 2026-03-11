@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { LayoutDashboard, ClipboardList, Users, RefreshCw, ArrowLeft, ShieldCheck, Wallet, CreditCard } from 'lucide-react';
+import { LayoutDashboard, ClipboardList, Users, RefreshCw, ArrowLeft, ShieldCheck, Wallet, CreditCard, Gift } from 'lucide-react';
 import AdminNotificationBell from '@/app/components/AdminNotificationBell';
 
 const navItems = [
@@ -10,6 +10,7 @@ const navItems = [
   { icon: ClipboardList, label: 'Orders', href: '/admin/orders' },
   { icon: Users, label: 'Users', href: '/admin/users' },
   { icon: ShieldCheck, label: 'KYC', href: '/admin/kyc' },
+  { icon: Gift, label: 'Referrals', href: '/admin/referrals' },
   { icon: RefreshCw, label: 'Exchange Rates', href: '/admin/rates' },
   { icon: Wallet, label: 'Wallets', href: '/admin/wallets' },
   { icon: CreditCard, label: 'Payment Methods', href: '/admin/settings/payment' },

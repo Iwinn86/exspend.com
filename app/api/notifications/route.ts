@@ -15,7 +15,10 @@ export async function GET(request: NextRequest) {
 
   try {
     const notifications = await prisma.notification.findMany({
-      where: { userId: user.userId },
+      where: {
+        userId: user.userId,
+        recipientType: user.isAdmin ? 'admin' : 'user',
+      },
       orderBy: { createdAt: 'desc' },
       take: 50,
     });

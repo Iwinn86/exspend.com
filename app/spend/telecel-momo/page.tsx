@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CRYPTO_OPTIONS, calcCrypto, getCryptoLabel, DEFAULT_LIVE_RATES, LiveRates } from '@/app/lib/crypto';
 import { createOrder } from '@/app/lib/orders-api';
 import { getToken } from '@/app/lib/auth';
+import DailyQuotaDisplay from '@/app/components/DailyQuotaDisplay';
 
 const TELECEL_PREFIXES = ['020', '050'];
 
@@ -131,7 +132,10 @@ export default function TelecelMomoPage() {
         ← Back to Spend
       </Link>
 
-      <h1 className="text-red-800 text-2xl md:text-3xl font-bold mb-1">Telecel Mobile Money</h1>
+      <div className="flex items-center gap-3 mb-1">
+        <img src="/telecel.png" alt="Telecel" className="h-10 w-10 object-contain" />
+        <h1 className="text-red-800 text-2xl md:text-3xl font-bold">Telecel Mobile Money</h1>
+      </div>
       <p className="text-gray-500 mb-2 text-sm">Send crypto, pay to any Telecel MoMo number</p>
       <p className="text-xs text-gray-400 mb-6">
         Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate) | 1 BTC = ${rates.btcUsd.toLocaleString()} (live)
@@ -227,6 +231,9 @@ export default function TelecelMomoPage() {
           <p className="text-xs text-gray-500">Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate) — locked at confirmation</p>
           <p>Network fee: included</p>
           <p>Daily limit: 30,000 GHS per account</p>
+
+          {/* Daily Quota */}
+          <DailyQuotaDisplay currentAmount={amountNum} />
         </div>
 
         {/* Proceed Button */}

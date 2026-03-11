@@ -88,14 +88,39 @@ export async function POST(
     // Notify the other party
     const notifyUserId = user.isAdmin ? order.userId : null;
     if (notifyUserId) {
+      // Admin sent message → notify the user
       await prisma.notification.create({
         data: {
           userId: notifyUserId,
+          recipientType: 'user',
           title: '💬 New message on your order',
           message: `Admin sent a message on order #${orderId.slice(0, ORDER_ID_DISPLAY_LENGTH).toUpperCase()}: "${message.slice(0, MESSAGE_PREVIEW_LENGTH)}${message.length > MESSAGE_PREVIEW_LENGTH ? '\u2026' : ''}"`,
           link: `/orders/${orderId}`,
+          relatedOrderId: orderId,
         },
       });
+    } else if (!user.isAdmin) {
+      // User sent message → notify all admins
+      const admins = await prisma.user.findMany({
+        where: { isAdmin: true },
+        select: { id: true },
+      });
+      if (admins.length > 0) {
+        const sender = await prisma.user.findUnique({
+          where: { id: user.userId },
+          select: { name: true },
+        });
+        await prisma.notification.createMany({
+          data: admins.map(admin => ({
+            userId: admin.id,
+            recipientType: 'admin',
+            title: '💬 Customer message',
+            message: `${sender?.name ?? 'Customer'} sent a message on order #${orderId.slice(0, ORDER_ID_DISPLAY_LENGTH).toUpperCase()}: "${message.slice(0, MESSAGE_PREVIEW_LENGTH)}${message.length > MESSAGE_PREVIEW_LENGTH ? '\u2026' : ''}"`,
+            link: `/admin/orders/${orderId}`,
+            relatedOrderId: orderId,
+          })),
+        });
+      }
     }
 
     return NextResponse.json({ message: newMsg }, { status: 201 });

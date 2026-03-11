@@ -48,12 +48,12 @@ export function logout(): void {
 }
 
 // Call the API to register
-export async function registerUser(name: string, email: string, phone: string, password: string): Promise<{ success: boolean; error?: string }> {
+export async function registerUser(name: string, email: string, phone: string, password: string, referralCode?: string): Promise<{ success: boolean; error?: string }> {
   try {
     const res = await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, phone, password }),
+      body: JSON.stringify({ name, email, phone, password, referralCode }),
     });
     const data = await res.json();
     if (!res.ok) {

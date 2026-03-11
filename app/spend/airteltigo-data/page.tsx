@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CRYPTO_OPTIONS, getCryptoLabel, DEFAULT_LIVE_RATES, LiveRates } from '@/app/lib/crypto';
 import { createOrder } from '@/app/lib/orders-api';
 import { getToken } from '@/app/lib/auth';
+import DailyQuotaDisplay from '@/app/components/DailyQuotaDisplay';
 
 const AIRTELTIGO_PREFIXES = ['026', '056', '027', '057'];
 
@@ -140,7 +141,10 @@ export default function AirtelTigoDataPage() {
         ← Back to Spend
       </Link>
 
-      <h1 className="text-red-900 text-2xl md:text-3xl font-bold mb-1">AirtelTigo Data Bundles</h1>
+      <div className="flex items-center gap-3 mb-1">
+        <img src="/airteltigo.png" alt="AIRTELTIGO" className="h-10 w-10 object-contain" />
+        <h1 className="text-red-900 text-2xl md:text-3xl font-bold">AirtelTigo Data Bundles</h1>
+      </div>
       <p className="text-gray-500 mb-2 text-sm">Buy data bundles for any AirtelTigo number with crypto</p>
       <p className="text-xs text-gray-400 mb-6">
         Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate) | 1 BTC = ${rates.btcUsd.toLocaleString()} (live)
@@ -234,6 +238,9 @@ export default function AirtelTigoDataPage() {
         </div>
 
         {/* Proceed Button */}
+        {/* Daily Quota */}
+        <DailyQuotaDisplay currentAmount={selectedBundle?.priceGhs} />
+
         {formError && <p className="text-red-500 text-xs -mt-2">{formError}</p>}
         <button
           onClick={handleProceed}

@@ -125,9 +125,11 @@ export async function PATCH(
         await prisma.notification.create({
           data: {
             userId: updated.userId,
+            recipientType: 'user',
             title: cfg.title,
             message: cfg.message,
             link: `/orders/${updated.id}`,
+            relatedOrderId: updated.id,
           },
         });
       }).catch(console.error);

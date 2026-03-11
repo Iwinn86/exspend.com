@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { DEFAULT_LIVE_RATES, LiveRates } from '@/app/lib/crypto';
 import { createOrder } from '@/app/lib/orders-api';
 import { getToken } from '@/app/lib/auth';
+import DailyQuotaDisplay from '@/app/components/DailyQuotaDisplay';
 
 const AIRTIME_CRYPTO_OPTIONS = [
   { label: 'Binance Pay', value: 'BINANCE_PAY' },
@@ -140,7 +141,10 @@ export default function AirtelTigoAirtimePage() {
         ← Back to Spend
       </Link>
 
-      <h1 className="text-red-900 text-2xl md:text-3xl font-bold mb-1">AirtelTigo Airtime Top-Up</h1>
+      <div className="flex items-center gap-3 mb-1">
+        <img src="/airteltigo.png" alt="AIRTELTIGO" className="h-10 w-10 object-contain" />
+        <h1 className="text-red-900 text-2xl md:text-3xl font-bold">AirtelTigo Airtime Top-Up</h1>
+      </div>
       <p className="text-gray-500 mb-2 text-sm">Top up any AirtelTigo number with crypto</p>
       <p className="text-xs text-gray-400 mb-6">
         Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate)
@@ -222,6 +226,9 @@ export default function AirtelTigoAirtimePage() {
           <p>Network fee: Zero ✅</p>
           <p>Note: Binance Pay &amp; Bybit Pay have no network fees</p>
         </div>
+
+        {/* Daily Quota */}
+        <DailyQuotaDisplay currentAmount={amountNum} />
 
         {/* Proceed Button */}
         {formError && (

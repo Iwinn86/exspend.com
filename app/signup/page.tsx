@@ -12,8 +12,32 @@ export default function SignupPage() {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [referralValid, setReferralValid] = useState<boolean | null>(null);
+  const [referralChecking, setReferralChecking] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+
+  async function checkReferralCode(code: string) {
+    if (!code.trim()) {
+      setReferralValid(null);
+      return;
+    }
+    setReferralChecking(true);
+    try {
+      const res = await fetch('/api/referral/validate-code', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code.trim() }),
+      });
+      const data = await res.json();
+      setReferralValid(data.valid === true);
+    } catch {
+      setReferralValid(null);
+    } finally {
+      setReferralChecking(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -27,9 +51,13 @@ export default function SignupPage() {
       setError('Passwords do not match');
       return;
     }
+    if (referralCode.trim() && referralValid === false) {
+      setError('Invalid referral code. Please remove it or enter a valid code.');
+      return;
+    }
 
     setLoading(true);
-    const result = await registerUser(name, email, phone, password);
+    const result = await registerUser(name, email, phone, password, referralCode.trim() || undefined);
     setLoading(false);
 
     if (result.success) {
@@ -116,6 +144,39 @@ export default function SignupPage() {
             />
           </div>
 
+          <div>
+            <label className="block text-green-900 text-sm font-medium mb-1">
+              Referral Code <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="e.g. EXP-ABC123DEF456"
+                value={referralCode}
+                onChange={(e) => {
+                  setReferralCode(e.target.value);
+                  setReferralValid(null);
+                }}
+                onBlur={() => checkReferralCode(referralCode)}
+                className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 ${
+                  referralValid === true ? 'border-green-400' : referralValid === false ? 'border-red-400' : 'border-gray-300'
+                }`}
+              />
+              {referralChecking && (
+                <span className="absolute right-3 top-3 text-xs text-gray-400">Checking…</span>
+              )}
+              {referralValid === true && !referralChecking && (
+                <span className="absolute right-3 top-3 text-xs text-green-600 font-medium">✓ Valid</span>
+              )}
+              {referralValid === false && !referralChecking && (
+                <span className="absolute right-3 top-3 text-xs text-red-600 font-medium">✗ Invalid</span>
+              )}
+            </div>
+            {referralValid === true && (
+              <p className="text-xs text-green-600 mt-1">Referral code applied! Your friend will earn 200 MB when you get verified.</p>
+            )}
+          </div>
+
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <button
@@ -137,3 +198,4 @@ export default function SignupPage() {
     </div>
   );
 }
+

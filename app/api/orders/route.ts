@@ -66,6 +66,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Check daily quota for spend orders
+    const ghsAmount = Number(amountGhs);
+    if (orderType === 'spend') {
+      const DAILY_LIMIT = 30000;
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const quotaResult = await prisma.order.aggregate({
+        where: {
+          userId: user.userId,
+          orderType: 'spend',
+          status: { notIn: ['cancelled', 'failed'] },
+          createdAt: { gte: today },
+        },
+        _sum: { amountGhs: true },
+      });
+      const totalSpentToday = quotaResult._sum.amountGhs ?? 0;
+      if (totalSpentToday + ghsAmount > DAILY_LIMIT) {
+        const remaining = Math.max(0, DAILY_LIMIT - totalSpentToday);
+        return NextResponse.json({
+          error: `Daily spending limit reached. You have GHS ${remaining.toFixed(2)} remaining today.`,
+        }, { status: 400 });
+      }
+    }
+
     const newOrder = await prisma.order.create({
       data: {
         userId: user.userId,
@@ -77,7 +101,7 @@ export async function POST(request: NextRequest) {
         bankName,
         reference,
         bundleLabel,
-        amountGhs: Number(amountGhs),
+        amountGhs: ghsAmount,
         cryptoAsset,
         cryptoAmount,
         cryptoRateGhs: Number(cryptoRateGhs),
@@ -91,6 +115,7 @@ export async function POST(request: NextRequest) {
         paymentAcctName,
         paymentMomoProvider,
         paymentMomoNumber,
+        quotaUsed: orderType === 'spend' ? ghsAmount : null,
       },
     });
 
@@ -138,16 +163,40 @@ export async function POST(request: NextRequest) {
       });
     }).catch(console.error);
 
-    // In-app notification for order creation
+    // In-app notification for order creation (user)
     Promise.resolve().then(async () => {
       await prisma.notification.create({
         data: {
           userId: newOrder.userId,
+          recipientType: 'user',
           title: '📋 Order Placed',
           message: `Your order #${newOrder.id.slice(0, 8).toUpperCase()} for ${newOrder.service} (GHS ${newOrder.amountGhs.toFixed(2)}) has been received. Please send the crypto payment.`,
           link: `/orders/${newOrder.id}`,
+          relatedOrderId: newOrder.id,
         },
       });
+
+      // Notify all admins about the new order
+      const admins = await prisma.user.findMany({
+        where: { isAdmin: true },
+        select: { id: true },
+      });
+      const orderUser = await prisma.user.findUnique({
+        where: { id: user.userId },
+        select: { name: true, email: true },
+      });
+      if (admins.length > 0 && orderUser) {
+        await prisma.notification.createMany({
+          data: admins.map(admin => ({
+            userId: admin.id,
+            recipientType: 'admin',
+            title: '🆕 New Order',
+            message: `${orderUser.name} placed order #${newOrder.id.slice(0, 8).toUpperCase()} for ${newOrder.service} — GHS ${newOrder.amountGhs.toFixed(2)}`,
+            link: `/admin/orders/${newOrder.id}`,
+            relatedOrderId: newOrder.id,
+          })),
+        });
+      }
     }).catch(console.error);
 
     return NextResponse.json({ order: newOrder }, { status: 201 });

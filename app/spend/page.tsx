@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { getToken } from '@/app/lib/auth';
 
 type SpendButton = {
-  emoji: string;
+  logo?: string;
+  emoji?: string;
   label: string;
   href: string;
   disabled?: boolean;
@@ -21,25 +22,25 @@ const spendCategories: SpendCategory[] = [
     category: 'Bank / Mobile Money',
     buttons: [
       { emoji: '🏦', label: 'Bank', href: '/spend/bank' },
-      { emoji: '📱', label: 'MTN MoMo', href: '/spend/mtn-momo' },
-      { emoji: '📡', label: 'Telecel MoMo', href: '/spend/telecel-momo' },
-      { emoji: '🔴', label: 'AirtelTigo MoMo', href: '/spend/airteltigo-momo' },
+      { logo: '/mtn.png', label: 'MTN MoMo', href: '/spend/mtn-momo' },
+      { logo: '/telecel.png', label: 'Telecel MoMo', href: '/spend/telecel-momo' },
+      { logo: '/airteltigo.png', label: 'AirtelTigo MoMo', href: '/spend/airteltigo-momo' },
     ],
   },
   {
     category: 'Airtime Top Up',
     buttons: [
-      { emoji: '🔴', label: 'AirtelTigo', href: '/spend/airteltigo-airtime' },
-      { emoji: '📡', label: 'Telecel', href: '/spend/telecel-airtime' },
-      { emoji: '🟡', label: 'MTN', href: '/spend/mtn-airtime' },
+      { logo: '/airteltigo.png', label: 'AirtelTigo', href: '/spend/airteltigo-airtime' },
+      { logo: '/telecel.png', label: 'Telecel', href: '/spend/telecel-airtime' },
+      { logo: '/mtn.png', label: 'MTN', href: '/spend/mtn-airtime' },
     ],
   },
   {
     category: 'Data Bundles',
     buttons: [
-      { emoji: '🔴', label: 'AirtelTigo', href: '/spend/airteltigo-data' },
-      { emoji: '📡', label: 'Telecel', href: '/spend/telecel-data' },
-      { emoji: '🟡', label: 'MTN', href: '/spend/mtn-data' },
+      { logo: '/airteltigo.png', label: 'AirtelTigo', href: '/spend/airteltigo-data' },
+      { logo: '/telecel.png', label: 'Telecel', href: '/spend/telecel-data' },
+      { logo: '/mtn.png', label: 'MTN', href: '/spend/mtn-data' },
     ],
   },
   {
@@ -105,13 +106,17 @@ export default function SpendPage() {
               <span className="text-green-800 font-bold text-sm md:text-base">{category}</span>
             </div>
             <div className="flex flex-wrap gap-3">
-              {buttons.map(({ emoji, label, href, disabled }) =>
+              {buttons.map(({ logo, emoji, label, href, disabled }) =>
                 disabled ? (
                   <div
                     key={label}
                     className="bg-white rounded-xl shadow p-3 flex flex-col items-center gap-1 min-w-[80px] opacity-50 cursor-not-allowed select-none"
                   >
-                    <span className="text-2xl">{emoji}</span>
+                    {logo ? (
+                      <img src={logo} alt={label} className="w-10 h-10 object-contain" />
+                    ) : (
+                      <span className="text-2xl">{emoji}</span>
+                    )}
                     <span className="text-xs text-center text-gray-600">{label}</span>
                     <span className="text-[10px] text-gray-400 italic">Soon</span>
                   </div>
@@ -121,7 +126,11 @@ export default function SpendPage() {
                     href={href}
                     className="bg-white rounded-xl shadow p-3 flex flex-col items-center gap-1 hover:bg-green-100 cursor-pointer min-w-[80px] transition-colors"
                   >
-                    <span className="text-2xl">{emoji}</span>
+                    {logo ? (
+                      <img src={logo} alt={label} className="w-10 h-10 object-contain" />
+                    ) : (
+                      <span className="text-2xl">{emoji}</span>
+                    )}
                     <span className="text-xs text-center text-gray-700">{label}</span>
                   </Link>
                 )
