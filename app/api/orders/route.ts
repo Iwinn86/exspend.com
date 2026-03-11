@@ -4,7 +4,6 @@ import { prisma } from '@/app/api/lib/prisma';
 import { sendEmail } from '@/app/api/lib/email';
 import { orderConfirmationEmail, adminNewOrderEmail } from '@/app/api/lib/email-templates';
 import { DEFAULT_WALLET_ADDRESSES } from '@/app/lib/crypto';
-import { DAILY_SPEND_LIMIT_GHS } from '@/app/api/lib/referral';
 import { OrderType, ServiceType } from '@prisma/client';
 
 function requireAuth(request: NextRequest) {

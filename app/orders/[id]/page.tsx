@@ -332,7 +332,7 @@ export default function OrderDetailPage() {
               {order.status === 'cancelled' ? 'Order Cancelled' : 'Transaction Failed'}
             </p>
             <p className="text-xs text-gray-500 mb-2">
-              {order.status === 'cancelled' && new Date(order.createdAt) < new Date(Date.now() - 25 * 60 * 1000)
+              {order.status === 'cancelled' && new Date(order.createdAt) < new Date(Date.now() - 30 * 60 * 1000)
                 ? '⚠️ This order was auto-cancelled due to timeout (30 min).'
                 : 'If you believe this is an error, please contact support.'}
             </p>
