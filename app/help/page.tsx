@@ -134,7 +134,25 @@ export default function HelpPage() {
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-green-900 mb-1">Help & Support</h1>
-      <p className="text-gray-500 mb-8 text-sm">Find answers or contact our team</p>
+      <p className="text-gray-500 mb-6 text-sm">Find answers or contact our team</p>
+
+      {/* WhatsApp Quick Support */}
+      <section className="mb-8">
+        <div className="bg-green-50 border border-green-200 rounded-xl p-5">
+          <p className="text-sm font-semibold text-gray-700 mb-2">⚡ Quick Support</p>
+          <p className="text-sm text-gray-600 mb-3">For immediate assistance, chat with us on WhatsApp</p>
+          <a
+            href="https://wa.me/233571827900"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-white text-sm transition-opacity hover:opacity-90"
+            style={{ backgroundColor: '#25D366' }}
+          >
+            <span className="text-lg">💬</span>
+            Chat on WhatsApp: +233 57 182 7900
+          </a>
+        </div>
+      </section>
 
       {/* FAQ Accordion */}
       <section className="mb-10">

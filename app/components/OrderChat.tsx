@@ -11,7 +11,7 @@ type Message = {
   user: { name: string; isAdmin: boolean };
 };
 
-type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
+type OrderStatus = 'waiting' | 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 
 const FINAL_STATUSES: OrderStatus[] = ['successful', 'failed', 'cancelled'];
 const POLL_INTERVAL_MS = 3000;
@@ -36,6 +36,7 @@ export default function OrderChat({
   const [error, setError] = useState<string | null>(null);
   const [loadingInitial, setLoadingInitial] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const token = getToken();
 
   const isClosed = FINAL_STATUSES.includes(currentStatus);
@@ -56,7 +57,14 @@ export default function OrderChat({
   }, [orderId, token]);
 
   useEffect(() => {
-    fetchMessages().finally(() => setLoadingInitial(false));
+    fetchMessages().finally(() => {
+      setLoadingInitial(false);
+      // After initial load, scroll the chat into view
+      setTimeout(() => {
+        chatContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    });
     // Stop polling when chat is closed (order in final status)
     if (isClosed) return;
     const interval = setInterval(fetchMessages, POLL_INTERVAL_MS);
@@ -104,7 +112,7 @@ export default function OrderChat({
   }
 
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden bg-white">
+    <div ref={chatContainerRef} className="border border-gray-200 rounded-xl overflow-hidden bg-white">
       {/* Header */}
       <div className="px-4 py-3 bg-green-900 flex items-center justify-between">
         <div className="flex items-center gap-2">

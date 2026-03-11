@@ -87,6 +87,7 @@ enum ServiceType {
 }
 
 enum OrderStatus {
+  waiting
   pending
   processing
   successful
@@ -160,15 +161,16 @@ model DataBundle {
 }
 
 model HelpTicket {
-  id        String       @id @default(uuid())
-  userId    String
-  user      User         @relation(fields: [userId], references: [id])
-  subject   String
-  message   String
-  status    TicketStatus @default(open)
-  replies   HelpReply[]
-  createdAt DateTime     @default(now())
-  updatedAt DateTime     @updatedAt
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id])
+  subject       String
+  message       String
+  attachmentUrl String?
+  status        TicketStatus @default(open)
+  replies       HelpReply[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 }
 
 model HelpReply {
@@ -177,6 +179,7 @@ model HelpReply {
   ticket    HelpTicket @relation(fields: [ticketId], references: [id])
   fromAdmin Boolean    @default(false)
   message   String
+  imageUrl  String?
   createdAt DateTime   @default(now())
 }
 

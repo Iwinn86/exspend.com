@@ -46,7 +46,6 @@ export default function AdminSidebar() {
           })}
         </nav>
         <div className="px-3 py-4 border-t border-green-800">
-          <AdminNotificationBell />
           <Link
             href="/spend"
             className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-white hover:bg-green-800 hover:text-lime-400 transition-colors"

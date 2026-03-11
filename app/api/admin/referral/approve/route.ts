@@ -20,12 +20,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'rewardId is required' }, { status: 400 });
     }
 
-    const reward = await prisma.referralReward.findUnique({ where: { id: rewardId } });
+    const reward = await prisma.referralReward.findUnique({
+      where: { id: rewardId },
+      include: {
+        referrer: { select: { kycVerified: true } },
+        referredUser: { select: { kycVerified: true } },
+      },
+    });
     if (!reward) {
       return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
     }
     if (reward.status !== 'pending') {
       return NextResponse.json({ error: 'Reward is not in pending state' }, { status: 400 });
+    }
+    if (!reward.referrer.kycVerified) {
+      return NextResponse.json({ error: 'Referrer is not KYC verified' }, { status: 400 });
+    }
+    if (!reward.referredUser.kycVerified) {
+      return NextResponse.json({ error: 'Referred user is not KYC verified' }, { status: 400 });
     }
 
     const updated = await prisma.referralReward.update({

@@ -67,25 +67,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check daily quota for spend orders
+    // Check daily quota for spend and sell orders
     const ghsAmount = Number(amountGhs);
-    if (orderType === 'spend') {
+    if (orderType === 'spend' || orderType === 'sell') {
       const today = new Date();
       today.setHours(0, 0, 0, 0);
+
+      // Get user's kycVerified status for quota limit
+      const userRecord = await prisma.user.findUnique({ where: { id: user.userId }, select: { kycVerified: true } });
+      const dailyLimit = userRecord?.kycVerified ? 30000 : 5000;
+
       const quotaResult = await prisma.order.aggregate({
         where: {
           userId: user.userId,
-          orderType: 'spend',
-          status: { notIn: ['cancelled', 'failed'] },
+          orderType: { in: ['spend', 'sell'] },
+          status: 'successful',
           createdAt: { gte: today },
         },
         _sum: { amountGhs: true },
       });
       const totalSpentToday = quotaResult._sum.amountGhs ?? 0;
-      if (totalSpentToday + ghsAmount > DAILY_SPEND_LIMIT_GHS) {
-        const remaining = Math.max(0, DAILY_SPEND_LIMIT_GHS - totalSpentToday);
+      if (totalSpentToday + ghsAmount > dailyLimit) {
+        const remaining = Math.max(0, dailyLimit - totalSpentToday);
         return NextResponse.json({
-          error: `Daily spending limit reached. You have GHS ${remaining.toFixed(2)} remaining today.`,
+          error: `Daily limit reached. You have GHS ${remaining.toFixed(2)} remaining today.`,
         }, { status: 400 });
       }
     }
@@ -115,7 +120,10 @@ export async function POST(request: NextRequest) {
         paymentAcctName,
         paymentMomoProvider,
         paymentMomoNumber,
-        quotaUsed: orderType === 'spend' ? ghsAmount : null,
+        quotaUsed: (orderType === 'spend' || orderType === 'sell') ? ghsAmount : null,
+        // spend/sell orders start as 'waiting' (user needs to send crypto)
+        // buy orders start as 'pending' (user needs to pay GHS)
+        status: (orderType === 'spend' || orderType === 'sell') ? 'waiting' : 'pending',
       },
     });
 

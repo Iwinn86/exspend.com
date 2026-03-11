@@ -12,7 +12,6 @@ import {
   FileText,
   LogOut,
   User,
-  UserCircle,
   Menu,
   X,
   Settings,
@@ -25,7 +24,6 @@ const navItems = [
   { icon: TrendingUp, label: 'Buy', href: '/buy' },
   { icon: TrendingDown, label: 'Sell', href: '/sell' },
   { icon: ClipboardList, label: 'Orders', href: '/orders' },
-  { icon: UserCircle, label: 'Profile', href: '/profile' },
   { icon: HelpCircle, label: 'Help', href: '/help' },
   { icon: FileText, label: 'Policies', href: '/policies' },
 ];
@@ -104,10 +102,13 @@ export default function NavBar() {
           <NotificationBell />
 
           {firstName && (
-            <div className="flex flex-col items-center gap-1 px-3 py-2 text-xs font-medium text-lime-300">
+            <Link
+              href="/profile"
+              className="flex flex-col items-center gap-1 px-3 py-2 rounded-lg transition-colors text-xs font-medium text-lime-300 hover:text-lime-100 hover:bg-green-800"
+            >
               <User size={20} />
               <span>{firstName}</span>
-            </div>
+            </Link>
           )}
 
           <button
@@ -150,10 +151,14 @@ export default function NavBar() {
           })}
 
           {firstName && (
-            <div className="flex items-center gap-3 px-4 py-2 text-sm font-medium text-lime-300">
+            <Link
+              href="/profile"
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-3 px-4 py-2 rounded-lg transition-colors text-sm font-medium text-lime-300 hover:text-lime-100 hover:bg-green-800"
+            >
               <User size={18} />
               <span>{firstName}</span>
-            </div>
+            </Link>
           )}
 
           {user?.email === ADMIN_EMAIL && (
