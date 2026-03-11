@@ -62,7 +62,7 @@ export default function NavBar() {
             <img
               src="/logo.png"
               alt="Exspend"
-              className="h-8 w-auto"
+              className="h-16 w-auto"
               onError={() => setLogoError(true)}
             />
           )}

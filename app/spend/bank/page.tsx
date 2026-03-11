@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { CRYPTO_OPTIONS, calcCrypto, getCryptoLabel, DEFAULT_LIVE_RATES, LiveRates } from '@/app/lib/crypto';
 import { createOrder } from '@/app/lib/orders-api';
 import { getToken } from '@/app/lib/auth';
+import DailyQuotaDisplay from '@/app/components/DailyQuotaDisplay';
 
 const MAX_ACCOUNT_NUMBER_LENGTH = 16;
 
@@ -246,6 +247,9 @@ export default function BankPage() {
           <p className="text-xs text-gray-500">Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate) — locked at confirmation</p>
           <p>Network fee: included</p>
           <p>Daily limit: 30,000 GHS per account</p>
+
+          {/* Daily Quota */}
+          <DailyQuotaDisplay currentAmount={amountNum} />
         </div>
 
         {/* Proceed Button */}

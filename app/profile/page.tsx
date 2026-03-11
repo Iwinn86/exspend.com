@@ -60,6 +60,25 @@ export default function ProfilePage() {
   // Transaction summary
   const [summary, setSummary] = useState<OrderSummary | null>(null);
 
+  // Referral
+  type ReferralStats = {
+    referralCode: string | null;
+    referralPoints: number;
+    stats: { totalSignups: number; totalApproved: number; totalSent: number };
+    rewards: Array<{ id: string; rewardNetwork: string; status: string; createdAt: string; referredUser: { name: string; email: string } | null }>;
+  };
+  const [referral, setReferral] = useState<ReferralStats | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  function copyReferralCode() {
+    if (referral?.referralCode) {
+      navigator.clipboard.writeText(referral.referralCode).then(() => {
+        setCopySuccess(true);
+        setTimeout(() => setCopySuccess(false), 2000);
+      });
+    }
+  }
+
   useEffect(() => {
     if (!user || !token) {
       router.push('/login');
@@ -82,6 +101,19 @@ export default function ProfilePage() {
           pending: orders.filter((o: { status: string }) => o.status === 'pending').length,
         });
       })
+      .catch(() => {});
+
+    // Fetch referral info (generate code if not exists)
+    fetch('/api/referral/generate-code', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(r => r.json())
+      .catch(() => null);
+
+    fetch('/api/referral/rewards', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setReferral(d))
       .catch(() => {});
   }, [user, token, router]);
 
@@ -375,7 +407,78 @@ export default function ProfilePage() {
             )}
           </section>
 
-          {/* Section 3: Transaction Summary */}
+          {/* Section 3: Referral Program */}
+          <section>
+            <h2 className="text-green-900 font-bold text-lg mb-4">Referral Program</h2>
+            <div className="bg-gradient-to-r from-green-50 to-lime-50 border border-green-200 rounded-xl p-5">
+              <p className="text-sm text-green-800 mb-4">
+                🎁 Invite friends to Exspend! When your referral signs up and gets KYC verified, you earn <strong>200 MB data</strong> on your choice of network.
+              </p>
+
+              {referral === null ? (
+                <p className="text-sm text-gray-400">Loading referral info…</p>
+              ) : (
+                <>
+                  <div className="mb-4">
+                    <p className="text-xs text-gray-500 mb-1 font-medium uppercase tracking-wide">Your Referral Code</p>
+                    <div className="flex items-center gap-2">
+                      <code className="bg-white border border-green-300 rounded-lg px-4 py-2 text-green-900 font-bold text-base tracking-wider flex-1">
+                        {referral.referralCode ?? 'Generating…'}
+                      </code>
+                      <button
+                        onClick={copyReferralCode}
+                        disabled={!referral.referralCode}
+                        className="bg-green-700 hover:bg-green-800 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-60 whitespace-nowrap"
+                      >
+                        {copySuccess ? '✓ Copied!' : 'Copy'}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-2">Share this code with friends when they sign up.</p>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3 mb-4">
+                    <div className="bg-white rounded-lg p-3 text-center border border-green-100">
+                      <p className="text-xl font-bold text-green-800">{referral.stats?.totalSignups ?? 0}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Friends Signed Up</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 text-center border border-green-100">
+                      <p className="text-xl font-bold text-green-800">{referral.stats?.totalApproved ?? 0}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Approved</p>
+                    </div>
+                    <div className="bg-white rounded-lg p-3 text-center border border-green-100">
+                      <p className="text-xl font-bold text-green-800">{referral.stats?.totalSent ?? 0}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Bonuses Sent</p>
+                    </div>
+                  </div>
+
+                  {referral.rewards && referral.rewards.length > 0 && (
+                    <div>
+                      <p className="text-xs font-medium text-gray-600 mb-2">Recent Referrals</p>
+                      <div className="flex flex-col gap-2">
+                        {referral.rewards.slice(0, 5).map(r => (
+                          <div key={r.id} className="bg-white rounded-lg px-3 py-2 flex items-center justify-between border border-gray-100 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-800">{r.referredUser?.name ?? 'Friend'}</span>
+                              <span className="ml-2 text-xs text-gray-400">{r.rewardNetwork.toUpperCase()}</span>
+                            </div>
+                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                              r.status === 'sent' ? 'bg-green-100 text-green-700' :
+                              r.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                              'bg-yellow-100 text-yellow-700'
+                            }`}>
+                              {r.status === 'sent' ? '✅ Sent' : r.status === 'approved' ? '✓ Approved' : '⏳ Pending'}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </section>
+
+          {/* Section 4: Transaction Summary */}
           <section>
             <h2 className="text-green-900 font-bold text-lg mb-4">Transaction Summary</h2>
             {summary === null ? (

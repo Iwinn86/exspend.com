@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@/app/api/lib/prisma';
 import { signToken } from '@/app/api/lib/jwt';
+import { generateUniqueReferralCode } from '@/app/api/lib/referral';
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, phone, password } = await request.json();
+    const { name, email, phone, password, referralCode } = await request.json();
 
     if (!name || !email || !phone || !password) {
       return NextResponse.json({ error: 'All fields are required' }, { status: 400 });
@@ -20,9 +21,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'An account with this email already exists' }, { status: 409 });
     }
 
+    // Validate referral code if provided
+    let referrerId: string | null = null;
+    if (referralCode) {
+      const referrer = await prisma.user.findUnique({
+        where: { referralCode: referralCode.trim().toUpperCase() },
+        select: { id: true, email: true },
+      });
+      if (!referrer) {
+        return NextResponse.json({ error: 'Invalid referral code' }, { status: 400 });
+      }
+      if (referrer.email === email) {
+        return NextResponse.json({ error: 'You cannot use your own referral code' }, { status: 400 });
+      }
+      referrerId = referrer.id;
+    }
+
     const passwordHash = await bcrypt.hash(password, 10);
+
+    // Generate a unique referral code for the new user
+    const newUserReferralCode = await generateUniqueReferralCode();
+
     const newUser = await prisma.user.create({
-      data: { name, email, phone, passwordHash, isAdmin: email === 'admin@exspend.com' },
+      data: {
+        name,
+        email,
+        phone,
+        passwordHash,
+        isAdmin: email === 'admin@exspend.com',
+        referralCode: newUserReferralCode,
+        referredBy: referrerId,
+      },
     });
 
     const token = signToken({
