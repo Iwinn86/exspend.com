@@ -1,4 +1,5 @@
 // PATCH /api/admin/orders/[id] — admin only: update order status and optionally add admin note
+// GET /api/admin/orders/[id] — admin only: get single order details
 import { NextRequest, NextResponse } from 'next/server';
 import { getTokenFromRequest, verifyToken } from '@/app/api/lib/jwt';
 import { prisma } from '@/app/api/lib/prisma';
@@ -14,6 +15,34 @@ function requireAdmin(request: NextRequest) {
 
 const VALID_STATUSES: OrderStatus[] = ['pending', 'processing', 'successful', 'failed', 'cancelled'];
 const EMAIL_STATUSES: OrderStatus[] = ['processing', 'successful', 'failed'];
+
+// GET /api/admin/orders/[id] — get single order with full details
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const admin = requireAdmin(request);
+  if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id },
+      include: {
+        user: { select: { name: true, email: true, phone: true } },
+        receipt: true,
+      },
+    });
+    if (!order) return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return NextResponse.json({ order });
+  } catch (err) {
+    console.error('ADMIN ORDER GET ERROR:', err);
+    return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 });
+  }
+}
+
+
 
 // PATCH /api/admin/orders/[id] — update order status
 export async function PATCH(

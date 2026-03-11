@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, BellOff } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { getToken } from '@/app/lib/auth';
 import {
@@ -11,11 +11,53 @@ import {
   timeAgo,
 } from '@/app/lib/notificationUtils';
 
+const SOUND_PREF_KEY = 'exspend_notification_sound';
+
+function playNotificationBeep() {
+  try {
+    const AudioCtx =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtx) return;
+    const ctx = new AudioCtx();
+    const oscillator = ctx.createOscillator();
+    const gain = ctx.createGain();
+    oscillator.connect(gain);
+    gain.connect(ctx.destination);
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime);
+    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.3, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3);
+    oscillator.start(ctx.currentTime);
+    oscillator.stop(ctx.currentTime + 0.3);
+  } catch {
+    // silently fail if audio is not supported
+  }
+}
+
 export default function NotificationBell() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<NotificationType[]>([]);
   const [open, setOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const prevUnreadCountRef = useRef<number>(0);
+  const initialLoadRef = useRef(true);
+
+  // Load sound preference from localStorage using lazy initializer
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return true;
+    const stored = localStorage.getItem(SOUND_PREF_KEY);
+    return stored === null ? true : stored === 'true';
+  });
+
+  function toggleSound() {
+    setSoundEnabled((prev) => {
+      const next = !prev;
+      localStorage.setItem(SOUND_PREF_KEY, String(next));
+      return next;
+    });
+  }
 
   const fetchNotifications = useCallback(async () => {
     const token = getToken();
@@ -26,13 +68,26 @@ export default function NotificationBell() {
       });
       if (!res.ok) return;
       const data = await res.json();
-      setNotifications(data.notifications ?? []);
+      const incoming: NotificationType[] = data.notifications ?? [];
+
+      const newUnread = incoming.filter((n) => !n.isRead).length;
+      const oldUnread = prevUnreadCountRef.current;
+
+      // Play sound when new unread notifications arrive (skip on first load)
+      if (!initialLoadRef.current && newUnread > oldUnread && soundEnabled) {
+        playNotificationBeep();
+      }
+
+      prevUnreadCountRef.current = newUnread;
+      initialLoadRef.current = false;
+      setNotifications(incoming);
     } catch {
       // silently fail
     }
-  }, []);
+  }, [soundEnabled]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchNotifications();
     const interval = setInterval(fetchNotifications, NOTIFICATION_POLL_INTERVAL_MS);
     return () => clearInterval(interval);
@@ -96,11 +151,21 @@ export default function NotificationBell() {
 
       {open && (
         <div className="absolute right-0 top-full mt-1 w-80 bg-white rounded-xl shadow-xl border border-gray-200 z-50 overflow-hidden">
-          <div className="px-4 py-3 border-b border-gray-100 bg-green-900">
-            <span className="text-sm font-semibold text-white">Notifications</span>
-            {unreadCount > 0 && (
-              <span className="ml-2 text-xs text-lime-400">{unreadCount} unread</span>
-            )}
+          <div className="px-4 py-3 border-b border-gray-100 bg-green-900 flex items-center justify-between">
+            <div>
+              <span className="text-sm font-semibold text-white">Notifications</span>
+              {unreadCount > 0 && (
+                <span className="ml-2 text-xs text-lime-400">{unreadCount} unread</span>
+              )}
+            </div>
+            <button
+              onClick={toggleSound}
+              title={soundEnabled ? 'Mute notification sounds' : 'Unmute notification sounds'}
+              className="text-white hover:text-lime-400 transition-colors"
+              aria-label={soundEnabled ? 'Mute sounds' : 'Unmute sounds'}
+            >
+              {soundEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+            </button>
           </div>
           <div className="max-h-96 overflow-y-auto">
             {recent.length === 0 ? (
@@ -140,3 +205,4 @@ export default function NotificationBell() {
     </div>
   );
 }
+

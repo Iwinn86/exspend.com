@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getToken } from '@/app/lib/auth';
+import OrderChat from '@/app/components/OrderChat';
 
 type OrderType = 'spend' | 'buy' | 'sell';
 type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
@@ -340,6 +341,11 @@ export default function OrderDetailPage() {
         >
           ← View All Orders
         </Link>
+
+        {/* Order Chat */}
+        <div className="mt-6">
+          <OrderChat orderId={order.id} orderStatus={order.status} />
+        </div>
       </div>
     </div>
   );

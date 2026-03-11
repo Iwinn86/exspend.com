@@ -54,6 +54,13 @@ export async function POST(request: NextRequest) {
     const userWalletAddress = body.userWalletAddress ?? null;
     const sellPayoutPhone = body.sellPayoutPhone ?? null;
     const sellPayoutBank = body.sellPayoutBank ?? null;
+    // Payment method fields (for buy orders)
+    const paymentMethod = body.paymentMethod ?? null;
+    const paymentBankName = body.paymentBankName ?? null;
+    const paymentBankAcct = body.paymentBankAcct ?? null;
+    const paymentAcctName = body.paymentAcctName ?? null;
+    const paymentMomoProvider = body.paymentMomoProvider ?? null;
+    const paymentMomoNumber = body.paymentMomoNumber ?? null;
 
     if (!service || !serviceType || !cryptoAsset || !cryptoAmount) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -78,6 +85,12 @@ export async function POST(request: NextRequest) {
         userWalletAddress,
         sellPayoutPhone,
         sellPayoutBank,
+        paymentMethod,
+        paymentBankName,
+        paymentBankAcct,
+        paymentAcctName,
+        paymentMomoProvider,
+        paymentMomoNumber,
       },
     });
 

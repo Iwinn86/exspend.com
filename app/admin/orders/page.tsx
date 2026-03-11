@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 
 type OrderStatus = 'pending' | 'processing' | 'successful' | 'failed' | 'cancelled';
 type FilterTab = 'all' | OrderStatus;
@@ -22,6 +23,13 @@ type Order = {
   adminNote?: string | null;
   createdAt: string;
   orderType: string;
+  // Payment method fields (for buy orders)
+  paymentMethod?: string | null;
+  paymentBankName?: string | null;
+  paymentBankAcct?: string | null;
+  paymentAcctName?: string | null;
+  paymentMomoProvider?: string | null;
+  paymentMomoNumber?: string | null;
   user?: { name: string; email: string };
 };
 
@@ -252,7 +260,65 @@ export default function AdminOrdersPage() {
                         <p className="text-xs text-gray-400">{order.user?.email ?? ''}</p>
                       </td>
                       <td className="px-4 py-3 text-gray-800">{order.service}</td>
-                      <td className="px-4 py-3 text-gray-800">{order.recipient ?? '—'}</td>
+                      <td className="px-4 py-3">
+                        {/* Recipient: account number + account holder name together */}
+                        {order.serviceType === 'bank' ? (
+                          <div className="space-y-0.5">
+                            {order.bankName && (
+                              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">{order.bankName}</p>
+                            )}
+                            {order.recipient && (
+                              <p className="font-mono text-sm text-gray-800">{order.recipient}</p>
+                            )}
+                            {order.recipientName && (
+                              <p className="text-xs text-gray-500">({order.recipientName})</p>
+                            )}
+                            {!order.recipient && !order.recipientName && <span className="text-gray-400">—</span>}
+                          </div>
+                        ) : order.serviceType === 'momo' ? (
+                          <div className="space-y-0.5">
+                            {order.bankName && (
+                              <span className="inline-block text-xs font-semibold bg-yellow-100 text-yellow-800 px-1.5 py-0.5 rounded">{order.bankName}</span>
+                            )}
+                            {order.recipient && (
+                              <p className="font-mono text-sm text-gray-800">{order.recipient}</p>
+                            )}
+                            {order.recipientName && (
+                              <p className="text-xs text-gray-500">({order.recipientName})</p>
+                            )}
+                            {!order.recipient && !order.recipientName && <span className="text-gray-400">—</span>}
+                          </div>
+                        ) : order.orderType === 'buy' && order.paymentMethod ? (
+                          <div className="space-y-0.5">
+                            <span className={`inline-block text-xs font-semibold px-1.5 py-0.5 rounded ${
+                              order.paymentMethod === 'bank' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                            }`}>
+                              {order.paymentMethod === 'bank' ? '🏦 Bank' : '📱 MoMo'}
+                            </span>
+                            {order.paymentMethod === 'bank' ? (
+                              <>
+                                {order.paymentBankName && <p className="text-xs text-gray-600">{order.paymentBankName}</p>}
+                                {order.paymentBankAcct && <p className="font-mono text-sm text-gray-800">{order.paymentBankAcct}</p>}
+                                {order.paymentAcctName && <p className="text-xs text-gray-500">({order.paymentAcctName})</p>}
+                              </>
+                            ) : (
+                              <>
+                                {order.paymentMomoProvider && <p className="text-xs text-gray-600">{order.paymentMomoProvider}</p>}
+                                {order.paymentMomoNumber && <p className="font-mono text-sm text-gray-800">{order.paymentMomoNumber}</p>}
+                                {order.paymentAcctName && <p className="text-xs text-gray-500">({order.paymentAcctName})</p>}
+                              </>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-gray-800">
+                            {order.recipient
+                              ? order.recipientName
+                                ? `${order.recipient} (${order.recipientName})`
+                                : order.recipient
+                              : '—'}
+                          </span>
+                        )}
+                      </td>
                       <td className="px-4 py-3 text-gray-800">{order.amountGhs.toFixed(2)}</td>
                       <td className="px-4 py-3 text-gray-800">{order.cryptoAsset}</td>
                       <td className="px-4 py-3 text-gray-800">{order.cryptoAmount}</td>
@@ -305,17 +371,25 @@ export default function AdminOrdersPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <select
-                          value={order.status}
-                          onChange={e => handleStatusChange(order.id, e.target.value as OrderStatus)}
-                          className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
-                        >
-                          <option value="pending">Pending</option>
-                          <option value="processing">Processing</option>
-                          <option value="successful">Successful</option>
-                          <option value="failed">Failed</option>
-                          <option value="cancelled">Cancelled</option>
-                        </select>
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={order.status}
+                            onChange={e => handleStatusChange(order.id, e.target.value as OrderStatus)}
+                            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="processing">Processing</option>
+                            <option value="successful">Successful</option>
+                            <option value="failed">Failed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                          <Link
+                            href={`/admin/orders/${order.id}`}
+                            className="text-xs text-green-700 hover:underline whitespace-nowrap"
+                          >
+                            💬 View &amp; Chat
+                          </Link>
+                        </div>
                       </td>
                     </tr>
                   ))
