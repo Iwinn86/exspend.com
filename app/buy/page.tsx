@@ -46,6 +46,7 @@ function Spinner() {
 }
 
 type PaymentMethod = 'bank' | 'momo';
+type MomoProvider = 'MTN' | 'Telecel' | 'AirtelTigo';
 
 type AdminPaymentSetting = {
   settingType: string;
@@ -56,6 +57,12 @@ type AdminPaymentSetting = {
   momoNumber?: string | null;
   momoAcctName?: string | null;
 };
+
+const MOMO_PROVIDERS: { key: string; label: MomoProvider; color: string; emoji: string }[] = [
+  { key: 'mtn_details', label: 'MTN', color: 'border-yellow-400 bg-yellow-50', emoji: '📡' },
+  { key: 'telecel_details', label: 'Telecel', color: 'border-red-400 bg-red-50', emoji: '📶' },
+  { key: 'airteltigo_details', label: 'AirtelTigo', color: 'border-orange-400 bg-orange-50', emoji: '📲' },
+];
 
 export default function BuyPage() {
   const router = useRouter();
@@ -74,6 +81,7 @@ export default function BuyPage() {
 
   // Payment method (Step 0)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
+  const [selectedMomoProvider, setSelectedMomoProvider] = useState<MomoProvider | null>(null);
   const [paymentSettings, setPaymentSettings] = useState<Record<string, AdminPaymentSetting>>({});
   const [loadingPaymentSettings, setLoadingPaymentSettings] = useState(true);
 
@@ -122,14 +130,18 @@ export default function BuyPage() {
   const cryptoRateUsd = asset === 'BTC' ? btcUsd : asset === 'BNB' ? bnbUsd : asset === 'ETH' ? ethUsd : 1;
 
   const bankSetting = paymentSettings['bank_details'] as AdminPaymentSetting | undefined;
-  const momoSetting = (
-    paymentSettings['mtn_details'] ||
-    paymentSettings['telecel_details'] ||
-    paymentSettings['airteltigo_details']
-  ) as AdminPaymentSetting | undefined;
+
+  // Get the selected MoMo provider's setting
+  const momoProviderKey = selectedMomoProvider
+    ? `${selectedMomoProvider.toLowerCase()}_details`
+    : null;
+  const momoSetting = momoProviderKey
+    ? (paymentSettings[momoProviderKey] as AdminPaymentSetting | undefined)
+    : undefined;
 
   function handleStep0Continue() {
     if (!selectedPaymentMethod) { setError('Please select a payment method'); return; }
+    if (selectedPaymentMethod === 'momo' && !selectedMomoProvider) { setError('Please select a mobile money provider'); return; }
     setError(null);
     setStep(1);
   }
@@ -187,7 +199,7 @@ export default function BuyPage() {
             : {}),
           ...(selectedPaymentMethod === 'momo' && momoSetting
             ? {
-                paymentMomoProvider: momoSetting.momoProvider,
+                paymentMomoProvider: selectedMomoProvider,
                 paymentMomoNumber: momoSetting.momoNumber,
                 paymentAcctName: momoSetting.momoAcctName,
               }
@@ -208,6 +220,7 @@ export default function BuyPage() {
   function handleReset() {
     setStep(0);
     setSelectedPaymentMethod(null);
+    setSelectedMomoProvider(null);
     setAsset('BTC');
     setAmountGhs('');
     setWalletAddress('');
@@ -296,39 +309,67 @@ export default function BuyPage() {
                 </button>
 
                 {/* Mobile Money Option */}
-                <button
-                  onClick={() => setSelectedPaymentMethod('momo')}
-                  className={`w-full border-2 rounded-xl p-4 text-left transition-all ${
-                    selectedPaymentMethod === 'momo'
-                      ? 'border-green-600 bg-green-100'
-                      : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <span className="text-2xl">📱</span>
-                    <div className="flex-1">
-                      <p className="font-semibold text-green-900">Mobile Money</p>
-                      {momoSetting ? (
-                        <div className="mt-1 space-y-0.5">
-                          {momoSetting.momoProvider && (
-                            <p className="text-xs text-green-700">Provider: <span className="font-medium">{momoSetting.momoProvider}</span></p>
-                          )}
-                          {momoSetting.momoNumber && (
-                            <p className="text-xs text-green-700">Number: <span className="font-medium font-mono">{momoSetting.momoNumber}</span></p>
-                          )}
-                          {momoSetting.momoAcctName && (
-                            <p className="text-xs text-green-700">Name: <span className="font-medium">{momoSetting.momoAcctName}</span></p>
-                          )}
-                        </div>
-                      ) : (
-                        <p className="text-xs text-gray-400 mt-1">Pay via mobile money</p>
+                <div>
+                  <button
+                    onClick={() => setSelectedPaymentMethod('momo')}
+                    className={`w-full border-2 rounded-xl p-4 text-left transition-all ${
+                      selectedPaymentMethod === 'momo'
+                        ? 'border-green-600 bg-green-100'
+                        : 'border-gray-200 bg-white hover:border-green-300 hover:bg-green-50'
+                    }`}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">📱</span>
+                      <div className="flex-1">
+                        <p className="font-semibold text-green-900">Mobile Money</p>
+                        <p className="text-xs text-gray-500 mt-1">MTN, Telecel, or AirtelTigo</p>
+                      </div>
+                      {selectedPaymentMethod === 'momo' && (
+                        <span className="text-green-600 font-bold text-lg">✓</span>
                       )}
                     </div>
-                    {selectedPaymentMethod === 'momo' && (
-                      <span className="text-green-600 font-bold text-lg">\u2713</span>
-                    )}
-                  </div>
-                </button>
+                  </button>
+
+                  {/* MoMo Provider Selection */}
+                  {selectedPaymentMethod === 'momo' && (
+                    <div className="mt-3 space-y-2 pl-2">
+                      <p className="text-sm font-medium text-green-900 mb-2">Select your provider:</p>
+                      {MOMO_PROVIDERS.map(provider => {
+                        const providerSetting = paymentSettings[provider.key] as AdminPaymentSetting | undefined;
+                        const isSelected = selectedMomoProvider === provider.label;
+                        return (
+                          <button
+                            key={provider.key}
+                            onClick={() => setSelectedMomoProvider(provider.label)}
+                            className={`w-full border-2 rounded-xl p-3 text-left transition-all ${
+                              isSelected
+                                ? `${provider.color} border-opacity-100`
+                                : 'border-gray-200 bg-white hover:border-gray-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-3">
+                              <span className="text-xl">{provider.emoji}</span>
+                              <div className="flex-1">
+                                <p className="font-semibold text-gray-900 text-sm">{provider.label}</p>
+                                {isSelected && providerSetting && (
+                                  <div className="mt-1 space-y-0.5">
+                                    {providerSetting.momoNumber && (
+                                      <p className="text-xs text-gray-600">Number: <span className="font-mono font-medium">{providerSetting.momoNumber}</span></p>
+                                    )}
+                                    {providerSetting.momoAcctName && (
+                                      <p className="text-xs text-gray-600">Name: <span className="font-medium">{providerSetting.momoAcctName}</span></p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                              {isSelected && <span className="text-green-600 font-bold text-lg">✓</span>}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
