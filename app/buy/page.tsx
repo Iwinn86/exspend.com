@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 
 const ASSETS = ['BTC', 'BNB', 'ETH', 'USDT (TRC-20)', 'USDT (BEP-20)', 'USDC (BEP-20)'];
 
@@ -93,8 +92,12 @@ export default function BuyPage() {
   const [walletAddress, setWalletAddress] = useState('');
   const [walletError, setWalletError] = useState<string | null>(null);
 
-  // Step 4 – success
+  // Step 4 – payment instructions
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [confirmingPaid, setConfirmingPaid] = useState(false);
+  const [cancellingOrder, setCancellingOrder] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadData() {
@@ -226,7 +229,62 @@ export default function BuyPage() {
     setWalletAddress('');
     setWalletError(null);
     setOrderId(null);
+    setTimeLeft(30 * 60);
+    setPaymentError(null);
     setError(null);
+  }
+
+  useEffect(() => {
+    if (!orderId || step !== 4) return;
+    setTimeLeft(30 * 60);
+    const interval = setInterval(() => {
+      setTimeLeft(prev => {
+        if (prev <= 1) { clearInterval(interval); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [orderId]);
+
+  async function handleConfirmPaid() {
+    if (!orderId) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('exspend_token') : null;
+    if (!token) { router.push('/login'); return; }
+    setConfirmingPaid(true);
+    setPaymentError(null);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/confirm-sent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) { setPaymentError(data.error || 'Failed to confirm payment'); return; }
+      router.push(`/orders/${orderId}`);
+    } catch {
+      setPaymentError('Network error. Please try again.');
+    } finally {
+      setConfirmingPaid(false);
+    }
+  }
+
+  async function handleCancelOrder() {
+    if (!orderId) return;
+    const token = typeof window !== 'undefined' ? localStorage.getItem('exspend_token') : null;
+    if (!token) { router.push('/login'); return; }
+    setCancellingOrder(true);
+    setPaymentError(null);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) { const d = await res.json(); setPaymentError(d.error || 'Failed to cancel order'); return; }
+      router.push('/orders');
+    } catch {
+      setPaymentError('Network error. Please try again.');
+    } finally {
+      setCancellingOrder(false);
+    }
   }
 
   const rateInfo = loadingRates
@@ -570,33 +628,83 @@ export default function BuyPage() {
           </div>
         )}
 
-        {/* STEP 4 – SUCCESS */}
+        {/* STEP 4 – PAYMENT INSTRUCTIONS */}
         {step === 4 && orderId && (
-          <div className="bg-green-50 rounded-2xl p-6 md:p-10 shadow-lg text-center">
-            <p className="text-5xl mb-4">🎉</p>
-            <h1 className="text-green-900 font-bold text-2xl mb-2">Order Created!</h1>
-            <p className="text-green-700 mb-1">
-              Your order <span className="font-mono font-bold">#{orderId.slice(0, 8).toUpperCase()}</span> is being processed.
+          <div className="bg-green-50 rounded-2xl p-6 md:p-8 shadow-lg">
+            <p className="text-4xl mb-3 text-center">💳</p>
+            <h1 className="text-green-900 font-bold text-2xl mb-1 text-center">Payment Instructions</h1>
+            <p className="text-green-700 text-sm text-center mb-1">
+              Order <span className="font-mono font-bold">#{orderId.slice(0, 8).toUpperCase()}</span>
             </p>
-            <p className="text-green-600 text-sm mb-2">You will receive <strong>{cryptoAmount} {asset}</strong> once payment is confirmed.</p>
-            <p className="text-green-600 text-sm mb-6">
-              Payment via: <strong>{selectedPaymentMethod === 'bank' ? '🏦 Bank Transfer' : '📱 Mobile Money'}</strong>
+            <p className="text-green-600 text-sm text-center mb-5">
+              You will receive <strong>{cryptoAmount} {asset}</strong> once your payment is verified.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-3 justify-center">
-              <Link
-                href={`/orders/${orderId}`}
-                className="bg-green-700 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-xl transition-colors"
-              >
-                Track your order
-              </Link>
-              <button
-                onClick={handleReset}
-                className="border border-green-300 text-green-700 hover:bg-green-100 font-semibold py-3 px-6 rounded-xl transition-colors"
-              >
-                Place another order
-              </button>
+            {paymentError && <p className="bg-red-100 text-red-700 rounded-lg px-4 py-2 text-sm mb-4">{paymentError}</p>}
+
+            {/* Payment destination */}
+            {selectedPaymentMethod === 'bank' && bankSetting ? (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-4 text-sm text-yellow-900 mb-4">
+                <p className="font-semibold mb-2">🏦 Bank Transfer Details</p>
+                {bankSetting.bankName && <p>Bank: <strong>{bankSetting.bankName}</strong></p>}
+                {bankSetting.bankAccount && <p>Account No: <strong className="font-mono">{bankSetting.bankAccount}</strong></p>}
+                {bankSetting.bankAcctName && <p>Account Name: <strong>{bankSetting.bankAcctName}</strong></p>}
+                <p className="mt-2">Amount: <strong className="text-lg">GHS {ghsNum.toFixed(2)}</strong></p>
+                <p className="text-xs mt-1 text-yellow-700">Reference: <span className="font-mono">{orderId.slice(0, 8).toUpperCase()}</span></p>
+              </div>
+            ) : selectedPaymentMethod === 'momo' && momoSetting ? (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-4 text-sm text-yellow-900 mb-4">
+                <p className="font-semibold mb-2">📱 Mobile Money Details</p>
+                {(momoSetting.momoProvider || selectedMomoProvider) && <p>Provider: <strong>{momoSetting.momoProvider ?? selectedMomoProvider}</strong></p>}
+                {momoSetting.momoNumber && <p>Number: <strong className="font-mono">{momoSetting.momoNumber}</strong></p>}
+                {momoSetting.momoAcctName && <p>Account Name: <strong>{momoSetting.momoAcctName}</strong></p>}
+                <p className="mt-2">Amount: <strong className="text-lg">GHS {ghsNum.toFixed(2)}</strong></p>
+                <p className="text-xs mt-1 text-yellow-700">Reference: <span className="font-mono">{orderId.slice(0, 8).toUpperCase()}</span></p>
+              </div>
+            ) : (
+              <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-4 text-sm text-yellow-900 mb-4">
+                <p className="font-semibold mb-1">💳 Payment Required</p>
+                <p>Pay <strong>GHS {ghsNum.toFixed(2)}</strong> via {selectedPaymentMethod === 'bank' ? 'bank transfer' : 'mobile money'} to complete your order.</p>
+                <p className="text-xs mt-1 text-yellow-700">Reference: <span className="font-mono">{orderId.slice(0, 8).toUpperCase()}</span></p>
+              </div>
+            )}
+
+            {/* Countdown timer */}
+            <div className={`rounded-xl px-4 py-3 text-center mb-5 ${timeLeft > 0 ? (timeLeft <= 300 ? 'bg-red-50 border border-red-200' : 'bg-green-100 border border-green-200') : 'bg-gray-100 border border-gray-200'}`}>
+              {timeLeft > 0 ? (
+                <>
+                  <p className={`text-xs font-medium mb-1 ${timeLeft <= 300 ? 'text-red-600' : 'text-green-700'}`}>⏱ Time remaining to confirm payment</p>
+                  <p className={`text-2xl font-bold font-mono ${timeLeft <= 300 ? 'text-red-600' : 'text-green-800'}`}>
+                    {String(Math.floor(timeLeft / 60)).padStart(2, '0')}:{String(timeLeft % 60).padStart(2, '0')}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-medium text-gray-600">⏰ Time&apos;s up — your order will be cancelled automatically.</p>
+                  <p className="text-xs text-gray-500 mt-1">If you&apos;ve already paid, please contact support with your order ID.</p>
+                  <button onClick={handleReset} className="mt-2 text-sm text-green-700 underline">Start a new order</button>
+                </>
+              )}
             </div>
+
+            {timeLeft > 0 && (
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={handleConfirmPaid}
+                  disabled={confirmingPaid || cancellingOrder}
+                  className="w-full bg-green-700 hover:bg-green-600 disabled:bg-green-300 text-white font-bold py-3 rounded-xl transition-colors"
+                >
+                  {confirmingPaid ? <><Spinner />Confirming…</> : '✅ I Have Paid →'}
+                </button>
+                <button
+                  onClick={handleCancelOrder}
+                  disabled={confirmingPaid || cancellingOrder}
+                  className="w-full border border-red-300 text-red-600 hover:bg-red-50 font-semibold py-3 rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {cancellingOrder ? <><Spinner />Cancelling…</> : '✕ Cancel Order'}
+                </button>
+              </div>
+            )}
           </div>
         )}
       </div>

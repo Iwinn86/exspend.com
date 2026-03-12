@@ -120,9 +120,8 @@ export async function POST(request: NextRequest) {
         paymentMomoProvider,
         paymentMomoNumber,
         quotaUsed: (orderType === 'spend' || orderType === 'sell') ? ghsAmount : null,
-        // spend/sell orders start as 'waiting' (user needs to send crypto)
-        // buy orders start as 'pending' (user needs to pay GHS)
-        status: (orderType === 'spend' || orderType === 'sell') ? 'waiting' : 'pending',
+        // All orders start as 'waiting' (user must confirm payment/sending)
+        status: 'waiting',
       },
     });
 

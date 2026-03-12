@@ -217,12 +217,24 @@ export default function AdminOrderDetailPage() {
               <p className="text-sm text-gray-500">Order is {order.status}. No further actions available.</p>
             ) : order.status === 'waiting' ? (
               <div className="bg-orange-50 border border-orange-200 rounded-lg px-4 py-3">
-                <p className="text-sm text-orange-700 font-medium">⏳ Waiting for user to confirm crypto sent</p>
-                <p className="text-xs text-orange-600 mt-1">Action buttons will activate once user clicks &quot;I Have Sent Crypto&quot;</p>
+                <p className="text-sm text-orange-700 font-medium">
+                  {order.orderType === 'buy'
+                    ? '⏳ Waiting for user to confirm GHS payment'
+                    : '⏳ Waiting for user to confirm crypto sent'}
+                </p>
+                <p className="text-xs text-orange-600 mt-1">
+                  {order.orderType === 'buy'
+                    ? 'Action buttons will activate once user clicks "I Have Paid"'
+                    : 'Action buttons will activate once user clicks "I Have Sent Crypto"'}
+                </p>
               </div>
             ) : order.status === 'pending' ? (
               <div className="flex flex-col gap-2">
-                <p className="text-sm text-gray-600 mb-1">User has confirmed sending crypto. Choose action:</p>
+                <p className="text-sm text-gray-600 mb-1">
+                  {order.orderType === 'buy'
+                    ? 'User has confirmed GHS payment. Verify and choose action:'
+                    : 'User has confirmed sending crypto. Choose action:'}
+                </p>
                 <button
                   onClick={() => handleStatusChange('successful')}
                   disabled={updatingStatus}
