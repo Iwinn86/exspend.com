@@ -8,6 +8,16 @@ import { registerUser, getCurrentUser } from '@/app/lib/auth';
 export default function SignupPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [referralCode, setReferralCode] = useState('');
+  const [referralValid, setReferralValid] = useState<boolean | null>(null);
+  const [referralChecking, setReferralChecking] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -19,16 +29,6 @@ export default function SignupPage() {
   }, [router]);
 
   if (!mounted) return null;
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [referralCode, setReferralCode] = useState('');
-  const [referralValid, setReferralValid] = useState<boolean | null>(null);
-  const [referralChecking, setReferralChecking] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   async function checkReferralCode(code: string) {
     if (!code.trim()) {

@@ -64,6 +64,7 @@ const MOMO_PROVIDERS: { key: string; label: MomoProvider; color: string; emoji: 
 ];
 
 const PENDING_BUY_ORDER_KEY = 'exspend_pending_buy_order';
+const ORDER_TIMEOUT_SECONDS = 30 * 60;
 
 export default function BuyPage() {
   const router = useRouter();
@@ -96,7 +97,7 @@ export default function BuyPage() {
 
   // Step 4 – payment instructions
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(ORDER_TIMEOUT_SECONDS);
   const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
@@ -109,7 +110,7 @@ export default function BuyPage() {
       const parsed = JSON.parse(saved);
       if (!parsed.orderId) return;
 
-      const timeLeftCalc = 30 * 60 - Math.floor((Date.now() - new Date(parsed.orderCreatedAt).getTime()) / 1000);
+      const timeLeftCalc = ORDER_TIMEOUT_SECONDS - Math.floor((Date.now() - new Date(parsed.orderCreatedAt).getTime()) / 1000);
       if (timeLeftCalc <= 0) {
         localStorage.removeItem(PENDING_BUY_ORDER_KEY);
         return;
@@ -140,6 +141,7 @@ export default function BuyPage() {
     } catch {
       localStorage.removeItem(PENDING_BUY_ORDER_KEY);
     }
+  // Run once on mount to restore any pending buy order from localStorage
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -288,7 +290,7 @@ export default function BuyPage() {
     setWalletAddress('');
     setWalletError(null);
     setOrderId(null);
-    setTimeLeft(30 * 60);
+    setTimeLeft(ORDER_TIMEOUT_SECONDS);
     setPaymentError(null);
     setError(null);
   }

@@ -8,6 +8,10 @@ import { loginUser, getCurrentUser } from '@/app/lib/auth';
 export default function LoginPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const user = getCurrentUser();
@@ -19,10 +23,6 @@ export default function LoginPage() {
   }, [router]);
 
   if (!mounted) return null;
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
