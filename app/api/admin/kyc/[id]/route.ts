@@ -28,6 +28,34 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       },
     });
 
+    if (action === 'approve') {
+      // Sync kycVerified flag and retrieve referredBy in a single query
+      const approvedUser = await prisma.user.update({
+        where: { id: updated.userId },
+        data: { kycVerified: true },
+        select: { referredBy: true },
+      });
+
+      // Create a ReferralReward if the approved user was referred and no reward exists yet
+      if (approvedUser.referredBy) {
+        const existingReward = await prisma.referralReward.findFirst({
+          where: { referredUserId: updated.userId },
+        });
+
+        if (!existingReward) {
+          await prisma.referralReward.create({
+            data: {
+              referrerId: approvedUser.referredBy,
+              referredUserId: updated.userId,
+              rewardType: 'airtime',  // default reward type
+              rewardNetwork: 'mtn',   // default network
+              status: 'pending',
+            },
+          });
+        }
+      }
+    }
+
     return NextResponse.json({ kyc: updated });
   } catch {
     return NextResponse.json({ error: 'Failed to update KYC' }, { status: 500 });
