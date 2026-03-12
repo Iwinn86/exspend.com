@@ -172,10 +172,7 @@ export default function OrderChat({
       {isClosed ? (
         <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 text-center">
           <p className="text-sm text-gray-500">
-            Chat closed — order is {currentStatus}.{' '}
-            <a href="/help" className="text-green-700 font-medium hover:underline">
-              Open a support ticket
-            </a>
+            Chat closed — order is {currentStatus}.
           </p>
         </div>
       ) : (
