@@ -227,12 +227,14 @@ export default function OrdersPage() {
                 >
                   View Details →
                 </Link>
-                <Link
-                  href={`/help?orderId=${order.id}`}
-                  className="inline-block text-xs font-semibold text-orange-700 border border-orange-300 hover:bg-orange-50 px-3 py-1 rounded-lg transition-colors"
-                >
-                  🎫 Open Ticket
-                </Link>
+                {(order.status === 'successful' || order.status === 'failed' || order.status === 'cancelled') && (
+                  <Link
+                    href={`/help?orderId=${order.id}`}
+                    className="inline-block text-xs font-semibold text-orange-700 border border-orange-300 hover:bg-orange-50 px-3 py-1 rounded-lg transition-colors"
+                  >
+                    🎫 Open Ticket
+                  </Link>
+                )}
               </div>
             </div>
           ))}

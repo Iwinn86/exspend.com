@@ -7,6 +7,7 @@ type QuotaData = {
   totalSpent: number;
   dailyLimit: number;
   remaining: number;
+  kycVerified?: boolean;
 };
 
 export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: number }) {
@@ -15,7 +16,10 @@ export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: n
   useEffect(() => {
     const token = getToken();
     if (!token) return;
-    fetch('/api/user/daily-quota', { headers: { Authorization: `Bearer ${token}` } })
+    fetch('/api/user/daily-quota', {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    })
       .then(r => r.json())
       .then(d => setQuota(d))
       .catch(() => {});
@@ -29,12 +33,17 @@ export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: n
 
   const usedPercent = Math.min(100, (quota.totalSpent / quota.dailyLimit) * 100);
   const wouldExceed = currentAmount && currentAmount > quota.remaining;
+  const isVerified = quota.dailyLimit >= 30000;
 
   return (
     <div className={`rounded-xl px-4 py-3 text-sm flex flex-col gap-1 ${wouldExceed ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-blue-50 border border-blue-100 text-blue-900'}`}>
       <div className="flex justify-between items-center mb-1">
         <span className="font-medium text-xs uppercase tracking-wide">Daily Spending Quota</span>
-        <span className="text-xs text-gray-500">{quota.dailyLimit.toLocaleString()} GHS limit</span>
+        {isVerified ? (
+          <span className="text-xs text-green-600 font-semibold">✅ Verified limit: GHS {quota.dailyLimit.toLocaleString()}</span>
+        ) : (
+          <span className="text-xs text-orange-600 font-semibold">⚠️ Unverified limit: GHS {quota.dailyLimit.toLocaleString()}</span>
+        )}
       </div>
       <div className="w-full bg-gray-200 rounded-full h-1.5 mb-1">
         <div
@@ -42,10 +51,13 @@ export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: n
           style={{ width: `${usedPercent}%` }}
         />
       </div>
-      <p>Today&apos;s spending: <strong>GHS {quota.totalSpent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
-      <p>Quota remaining: <strong className={quota.remaining < 5000 ? 'text-red-700' : 'text-green-700'}>GHS {quota.remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
+      <p>Daily Limit: <strong>GHS {quota.dailyLimit.toLocaleString()}</strong></p>
+      <p>Remaining: <strong className={quota.remaining < 5000 ? 'text-red-700' : 'text-green-700'}>GHS {quota.remaining.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></p>
       {afterThis !== null && currentAmount && currentAmount > 0 && (
         <p className="text-xs">After this order: <strong>GHS {afterThis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} remaining</strong></p>
+      )}
+      {!isVerified && (
+        <p className="text-xs text-orange-700 mt-1">Verify your identity to increase limit to GHS 30,000</p>
       )}
       {wouldExceed && (
         <p className="text-red-700 font-semibold text-xs mt-1">⚠️ This amount exceeds your daily quota. Please reduce the amount.</p>

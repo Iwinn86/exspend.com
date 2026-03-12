@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getToken } from '@/app/lib/auth';
@@ -44,6 +44,8 @@ const ORDER_TYPE_ICON: Record<OrderType, string> = {
   sell: '📉',
 };
 
+const THIRTY_MINUTES_MS = 30 * 60 * 1000;
+
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString('en-GB', {
     day: 'numeric',
@@ -63,6 +65,50 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+function CountdownTimer({ createdAt, onExpire }: { createdAt: string; onExpire: () => void }) {
+  const [secondsLeft, setSecondsLeft] = useState<number>(() => {
+    const elapsed = Date.now() - new Date(createdAt).getTime();
+    return Math.max(0, Math.floor((THIRTY_MINUTES_MS - elapsed) / 1000));
+  });
+
+  useEffect(() => {
+    if (secondsLeft <= 0) {
+      onExpire();
+      return;
+    }
+    const interval = setInterval(() => {
+      setSecondsLeft(prev => {
+        const next = prev - 1;
+        if (next <= 0) {
+          clearInterval(interval);
+          onExpire();
+          return 0;
+        }
+        return next;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [secondsLeft, onExpire]);
+
+  const minutes = Math.floor(secondsLeft / 60);
+  const seconds = secondsLeft % 60;
+  const pad = (n: number) => String(n).padStart(2, '0');
+
+  if (secondsLeft <= 0) {
+    return (
+      <div className="text-center text-red-700 font-semibold text-sm py-2">
+        ❌ Order Expired — This order has been automatically cancelled
+      </div>
+    );
+  }
+
+  return (
+    <div className={`text-center text-sm font-medium py-1 ${secondsLeft < 300 ? 'text-red-600' : 'text-orange-700'}`}>
+      ⏱️ Time remaining: {pad(minutes)}:{pad(seconds)}
+    </div>
+  );
+}
+
 export default function OrderDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -74,8 +120,34 @@ export default function OrderDetailPage() {
   const [walletAddress, setWalletAddress] = useState('');
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
+  const [timerExpired, setTimerExpired] = useState(false);
 
   const token = getToken();
+
+  const reloadOrder = useCallback(async () => {
+    if (!token) return;
+    const res = await fetch(`/api/orders/${orderId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setOrder(data.order ?? data);
+    }
+  }, [orderId, token]);
+
+  const handleTimerExpire = useCallback(async () => {
+    setTimerExpired(true);
+    if (!token) return;
+    try {
+      await fetch(`/api/orders/${orderId}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      await reloadOrder();
+    } catch {
+      // ignore
+    }
+  }, [orderId, token, reloadOrder]);
 
   useEffect(() => {
     if (!token) {
@@ -96,7 +168,7 @@ export default function OrderDetailPage() {
   }, [orderId, token]);
 
   useEffect(() => {
-    if (!order || order.status !== 'pending') return;
+    if (!order || (order.status !== 'pending' && order.status !== 'waiting')) return;
     fetch('/api/settings')
       .then((res) => res.json())
       .then((data) => {
@@ -126,14 +198,7 @@ export default function OrderDetailPage() {
           Authorization: `Bearer ${token}`,
         },
       });
-      // Reload order to show updated status
-      const res = await fetch(`/api/orders/${order.id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setOrder(data.order ?? data);
-      }
+      await reloadOrder();
     } catch {
       // ignore
     } finally {
@@ -204,90 +269,99 @@ export default function OrderDetailPage() {
         {/* ── WAITING: SPEND ── show wallet + "I've sent" button */}
         {order.status === 'waiting' && order.orderType === 'spend' && (
           <div className="mb-5">
-            <div className="bg-green-50 border border-green-300 rounded-xl p-4 mb-3">
-              <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
-              <p className="text-2xl font-bold font-mono text-gray-900 mb-3">
-                {order.cryptoAmount} {order.cryptoAsset}
-              </p>
-              {walletAddress ? (
-                <>
-                  <p className="text-xs text-gray-500 mb-1">To this wallet address:</p>
-                  <p className="font-mono text-sm break-all text-gray-800 mb-2">{walletAddress}</p>
-                  <button
-                    onClick={handleCopy}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
-                  >
-                    {copied ? '✅ Copied!' : 'Copy Address'}
-                  </button>
-                </>
-              ) : (
-                <p className="text-xs text-gray-400">Wallet address loading…</p>
-              )}
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 mt-3 text-xs text-yellow-800">
-                ⚠️ Send on the correct network. Wrong network = permanent loss of funds.
-              </div>
-            </div>
-            <p className="text-xs text-gray-400 text-center mb-3">
-              ⏱ Please complete payment within 30 minutes of order creation.
-            </p>
-            <button
-              onClick={handleSentPayment}
-              disabled={sending}
-              className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-            >
-              {sending ? 'Processing…' : "I Have Sent Crypto →"}
-            </button>
+            <CountdownTimer createdAt={order.createdAt} onExpire={handleTimerExpire} />
+            {!timerExpired && (
+              <>
+                <div className="bg-green-50 border border-green-300 rounded-xl p-4 mb-3 mt-2">
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
+                  <p className="text-2xl font-bold font-mono text-gray-900 mb-3">
+                    {order.cryptoAmount} {order.cryptoAsset}
+                  </p>
+                  {walletAddress ? (
+                    <>
+                      <p className="text-xs text-gray-500 mb-1">To this wallet address:</p>
+                      <p className="font-mono text-sm break-all text-gray-800 mb-2">{walletAddress}</p>
+                      <button
+                        onClick={handleCopy}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+                      >
+                        {copied ? '✅ Copied!' : 'Copy Address'}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">Wallet address loading…</p>
+                  )}
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 mt-3 text-xs text-yellow-800">
+                    ⚠️ Send on the correct network. Wrong network = permanent loss of funds.
+                  </div>
+                </div>
+                <button
+                  onClick={handleSentPayment}
+                  disabled={sending}
+                  className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+                >
+                  {sending ? 'Processing…' : "I Have Sent Crypto →"}
+                </button>
+              </>
+            )}
           </div>
         )}
 
         {/* ── WAITING: SELL ── show wallet address for user to send to */}
         {order.status === 'waiting' && order.orderType === 'sell' && (
           <div className="mb-5">
-            <div className="bg-green-50 border border-green-300 rounded-xl p-4">
-              <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
-              <p className="text-2xl font-bold font-mono text-gray-900 mb-3">
-                {order.cryptoAmount} {order.cryptoAsset}
-              </p>
-              {walletAddress ? (
-                <>
-                  <p className="text-xs text-gray-500 mb-1">To this wallet address:</p>
-                  <p className="font-mono text-sm break-all text-gray-800 mb-2">{walletAddress}</p>
-                  <button
-                    onClick={handleCopy}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
-                  >
-                    {copied ? '✅ Copied!' : 'Copy Address'}
-                  </button>
-                </>
-              ) : (
-                <p className="text-xs text-gray-400">Wallet address loading…</p>
-              )}
-              <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 mt-3 text-xs text-yellow-800">
-                ⚠️ Send on the correct network. Wrong network = permanent loss of funds.
-              </div>
-            </div>
-            <p className="text-xs text-gray-400 text-center mt-3 mb-3">
-              ⏱ Please complete payment within 30 minutes of order creation.
-            </p>
-            <button
-              onClick={handleSentPayment}
-              disabled={sending}
-              className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm"
-            >
-              {sending ? 'Processing…' : "I Have Sent Crypto →"}
-            </button>
+            <CountdownTimer createdAt={order.createdAt} onExpire={handleTimerExpire} />
+            {!timerExpired && (
+              <>
+                <div className="bg-green-50 border border-green-300 rounded-xl p-4 mt-2">
+                  <p className="text-sm font-semibold text-gray-700 mb-1">Send exactly:</p>
+                  <p className="text-2xl font-bold font-mono text-gray-900 mb-3">
+                    {order.cryptoAmount} {order.cryptoAsset}
+                  </p>
+                  {walletAddress ? (
+                    <>
+                      <p className="text-xs text-gray-500 mb-1">To this wallet address:</p>
+                      <p className="font-mono text-sm break-all text-gray-800 mb-2">{walletAddress}</p>
+                      <button
+                        onClick={handleCopy}
+                        className="w-full bg-green-600 hover:bg-green-700 text-white text-sm font-semibold py-2 rounded-lg transition-colors"
+                      >
+                        {copied ? '✅ Copied!' : 'Copy Address'}
+                      </button>
+                    </>
+                  ) : (
+                    <p className="text-xs text-gray-400">Wallet address loading…</p>
+                  )}
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-lg px-3 py-2 mt-3 text-xs text-yellow-800">
+                    ⚠️ Send on the correct network. Wrong network = permanent loss of funds.
+                  </div>
+                </div>
+                <button
+                  onClick={handleSentPayment}
+                  disabled={sending}
+                  className="w-full bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white font-semibold py-3 rounded-xl transition-colors text-sm mt-3"
+                >
+                  {sending ? 'Processing…' : "I Have Sent Crypto →"}
+                </button>
+              </>
+            )}
           </div>
         )}
 
-        {/* ── PENDING: BUY ── show payment instruction */}
+        {/* ── PENDING: BUY ── show payment instruction + countdown */}
         {order.status === 'pending' && order.orderType === 'buy' && (
-          <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-5 text-center">
-            <span className="text-3xl block mb-2">⏳</span>
-            <p className="text-blue-800 font-semibold text-sm">
-              Your order is pending. Pay GHS{' '}
-              {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}{' '}
-              to complete this order.
-            </p>
+          <div className="mb-5">
+            <CountdownTimer createdAt={order.createdAt} onExpire={handleTimerExpire} />
+            {!timerExpired && (
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-2 text-center">
+                <span className="text-3xl block mb-2">⏳</span>
+                <p className="text-blue-800 font-semibold text-sm">
+                  Your order is pending. Pay GHS{' '}
+                  {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}{' '}
+                  to complete this order.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -331,17 +405,11 @@ export default function OrderDetailPage() {
             <p className="font-semibold text-red-800 text-sm mb-1">
               {order.status === 'cancelled' ? 'Order Cancelled' : 'Transaction Failed'}
             </p>
-            <p className="text-xs text-gray-500 mb-2">
+            <p className="text-xs text-gray-500">
               {order.status === 'cancelled' && new Date(order.createdAt) < new Date(Date.now() - 30 * 60 * 1000)
                 ? '⚠️ This order was auto-cancelled due to timeout (30 min).'
                 : 'If you believe this is an error, please contact support.'}
             </p>
-            <Link
-              href={`/help?orderId=${order.id}`}
-              className="inline-block text-xs font-semibold text-green-700 border border-green-400 hover:bg-green-50 px-3 py-1.5 rounded-lg transition-colors"
-            >
-              🎫 Open Support Ticket
-            </Link>
           </div>
         )}
 
@@ -352,6 +420,18 @@ export default function OrderDetailPage() {
             <p className="text-blue-800 font-semibold text-sm">
               Your payment is being processed. This usually takes up to 30 minutes.
             </p>
+          </div>
+        )}
+
+        {/* ── Contact Support — only after order is finished ── */}
+        {(order.status === 'successful' || order.status === 'failed' || order.status === 'cancelled') && (
+          <div className="mb-4 text-center">
+            <Link
+              href={`/help?orderId=${order.id}`}
+              className="inline-block text-sm font-semibold text-green-700 border border-green-400 hover:bg-green-50 px-4 py-2 rounded-xl transition-colors"
+            >
+              🎫 Need help? Contact Support
+            </Link>
           </div>
         )}
 

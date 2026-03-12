@@ -59,11 +59,6 @@ export default function OrderChat({
   useEffect(() => {
     fetchMessages().finally(() => {
       setLoadingInitial(false);
-      // After initial load, scroll the chat into view
-      setTimeout(() => {
-        chatContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
     });
     // Stop polling when chat is closed (order in final status)
     if (isClosed) return;

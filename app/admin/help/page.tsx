@@ -22,8 +22,6 @@ function authHeaders() {
   return { 'Content-Type': 'application/json', Authorization: `Bearer ${getAdminToken()}` };
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface HelpReply {
   id: string;
   message: string;
@@ -35,6 +33,7 @@ interface HelpTicket {
   id: string;
   subject: string;
   message: string;
+  orderId?: string | null;
   status: string;
   createdAt: string;
   updatedAt: string;
@@ -50,13 +49,12 @@ const STATUS_COLORS: Record<string, string> = {
 };
 
 const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
   { value: 'open', label: 'Open' },
   { value: 'in_progress', label: 'In Progress' },
   { value: 'resolved', label: 'Resolved' },
   { value: 'closed', label: 'Closed' },
 ];
-
-// ─── Ticket row ───────────────────────────────────────────────────────────────
 
 function TicketRow({
   ticket,
@@ -72,9 +70,11 @@ function TicketRow({
   onRefresh: () => void;
 }) {
   const [replyMessage, setReplyMessage] = useState('');
-  const [replyStatus, setReplyStatus] = useState(ticket.status);
   const [sending, setSending] = useState(false);
+  const [resolving, setResolving] = useState(false);
   const [error, setError] = useState('');
+
+  const isResolved = ticket.status === 'resolved' || ticket.status === 'closed';
 
   async function handleReply(e: React.FormEvent) {
     e.preventDefault();
@@ -84,7 +84,7 @@ function TicketRow({
       const res = await fetch(`/api/admin/help/${ticket.id}/reply`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ message: replyMessage, status: replyStatus }),
+        body: JSON.stringify({ message: replyMessage }),
       });
       const data = await res.json();
       if (res.ok) {
@@ -100,11 +100,33 @@ function TicketRow({
     }
   }
 
+  async function handleResolve() {
+    if (!confirm('Mark this ticket as resolved? This will close the chat.')) return;
+    setResolving(true);
+    setError('');
+    try {
+      const res = await fetch(`/api/admin/help/${ticket.id}/reply`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ resolve: true }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        onRefresh();
+      } else {
+        setError(data.error ?? 'Failed to resolve ticket.');
+      }
+    } catch {
+      setError('Network error. Please try again.');
+    } finally {
+      setResolving(false);
+    }
+  }
+
   const statusLabel = ticket.status.replace('_', ' ');
 
   return (
     <div className="border border-gray-100 rounded-xl overflow-hidden">
-      {/* Ticket header — always visible */}
       <button
         onClick={onToggle}
         className="w-full text-left px-5 py-4 hover:bg-gray-50 transition-colors flex items-start justify-between gap-4"
@@ -116,6 +138,9 @@ function TicketRow({
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium capitalize ${STATUS_COLORS[ticket.status] ?? 'bg-gray-100 text-gray-600'}`}>
               {statusLabel}
             </span>
+            {ticket.orderId && (
+              <span className="text-xs text-gray-400 font-mono">Order: {ticket.orderId.slice(0, 8).toUpperCase()}</span>
+            )}
           </div>
           <p className="text-sm text-gray-500 mt-0.5">
             {ticket.user.name} &lt;{ticket.user.email}&gt; ·{' '}
@@ -126,10 +151,14 @@ function TicketRow({
         <span className="text-gray-400 text-lg flex-shrink-0">{expanded ? '▲' : '▼'}</span>
       </button>
 
-      {/* Expanded conversation + reply */}
       {expanded && (
         <div className="border-t border-gray-100 px-5 py-4 bg-gray-50 space-y-4">
-          {/* Original message */}
+          {isResolved && (
+            <div className="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-center">
+              <p className="text-green-800 font-semibold text-sm">🔒 Ticket Resolved — Chat Closed</p>
+            </div>
+          )}
+
           <div className="bg-white rounded-lg border border-gray-200 p-4">
             <p className="text-xs text-gray-400 mb-1">
               {ticket.user.name} · {new Date(ticket.createdAt).toLocaleString()}
@@ -137,7 +166,6 @@ function TicketRow({
             <p className="text-sm text-gray-700 whitespace-pre-wrap">{ticket.message}</p>
           </div>
 
-          {/* Replies */}
           {ticket.replies.map(reply => (
             <div
               key={reply.id}
@@ -155,39 +183,39 @@ function TicketRow({
             </div>
           ))}
 
-          {/* Reply form */}
-          <form onSubmit={handleReply} className="space-y-3 pt-2">
-            <textarea
-              required
-              rows={3}
-              value={replyMessage}
-              onChange={e => setReplyMessage(e.target.value)}
-              placeholder="Type your reply…"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
-            />
-            <div className="flex items-center gap-3 flex-wrap">
-              <div>
-                <label className="text-xs text-gray-500 mr-1">Update status:</label>
-                <select
-                  value={replyStatus}
-                  onChange={e => setReplyStatus(e.target.value)}
-                  className="border border-gray-200 rounded px-2 py-1 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-green-500"
+          {!isResolved && (
+            <div className="space-y-3 pt-2">
+              <form onSubmit={handleReply} className="space-y-3">
+                <textarea
+                  required
+                  rows={3}
+                  value={replyMessage}
+                  onChange={e => setReplyMessage(e.target.value)}
+                  placeholder="Type your reply…"
+                  className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500 resize-none"
+                />
+                <button
+                  type="submit"
+                  disabled={sending}
+                  className="px-5 py-2 bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white rounded-lg text-sm font-medium transition-colors"
                 >
-                  {STATUS_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                  {sending ? 'Sending…' : 'Send Reply'}
+                </button>
+              </form>
+              <div className="border-t border-gray-200 pt-3">
+                <button
+                  onClick={handleResolve}
+                  disabled={resolving}
+                  className="px-5 py-2 bg-gray-700 hover:bg-gray-800 disabled:bg-gray-400 text-white rounded-lg text-sm font-medium transition-colors"
+                >
+                  {resolving ? 'Resolving…' : '✅ Mark as Resolved'}
+                </button>
+                <p className="text-xs text-gray-400 mt-1">Resolving will close the chat permanently.</p>
               </div>
-              <button
-                type="submit"
-                disabled={sending}
-                className="px-5 py-2 bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white rounded-lg text-sm font-medium transition-colors"
-              >
-                {sending ? 'Sending…' : 'Send Reply'}
-              </button>
             </div>
-            {error && <p className="text-red-500 text-xs">{error}</p>}
-          </form>
+          )}
+
+          {error && <p className="text-red-500 text-xs">{error}</p>}
         </div>
       )}
     </div>
@@ -195,8 +223,6 @@ function TicketRow({
 }
 
 const TICKETS_PER_PAGE = 10;
-
-// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AdminHelpPage() {
   const router = useRouter();
@@ -244,7 +270,6 @@ export default function AdminHelpPage() {
           onChange={e => { setFilterStatus(e.target.value); setCurrentPage(1); }}
           className="border border-gray-200 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-green-500"
         >
-          <option value="all">All Statuses</option>
           {STATUS_OPTIONS.map(o => (
             <option key={o.value} value={o.value}>{o.label}</option>
           ))}
