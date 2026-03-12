@@ -367,7 +367,7 @@ export default function AdminOrdersPage() {
                             </span>
                           ) : order.status === 'waiting' ? (
                             <span className="text-xs text-orange-600 font-medium">
-                              ⏳ Waiting for user
+                              {order.orderType === 'buy' ? '⏳ Awaiting GHS payment' : '⏳ Awaiting crypto'}
                             </span>
                           ) : order.status === 'pending' ? (
                             <div className="flex flex-col gap-1">
