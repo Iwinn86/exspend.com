@@ -21,6 +21,12 @@ type ApiOrder = {
   updatedAt?: string;
   recipient?: string | null;
   recipientName?: string | null;
+  paymentMethod?: string | null;
+  paymentBankName?: string | null;
+  paymentBankAcct?: string | null;
+  paymentAcctName?: string | null;
+  paymentMomoProvider?: string | null;
+  paymentMomoNumber?: string | null;
 };
 
 const STATUS_BADGE: Record<OrderStatus, string> = {
@@ -229,6 +235,7 @@ export default function OrderDetailPage() {
   }
 
   const receiptNumber = `EXP-${order.id.slice(0, 8).toUpperCase()}`;
+  const paymentRef = order.id.slice(0, 8).toUpperCase();
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-green-400 to-white py-8 px-4">
@@ -354,15 +361,35 @@ export default function OrderDetailPage() {
             <CountdownTimer createdAt={order.createdAt} onExpire={handleTimerExpire} />
             {!timerExpired && (
               <>
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-2 text-center mb-4">
-                  <span className="text-3xl block mb-2">💳</span>
-                  <p className="text-blue-800 font-semibold text-sm mb-1">
-                    Pay GHS{' '}
-                    {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}{' '}
-                    using your selected payment method.
-                  </p>
-                  <p className="text-blue-600 text-xs">Once you have made the payment, click the button below.</p>
-                </div>
+                {order.paymentMethod === 'bank' && order.paymentBankAcct ? (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-4 text-sm text-yellow-900 mb-4 mt-2">
+                    <p className="font-semibold mb-3">🏦 Bank Transfer Details</p>
+                    {order.paymentBankName && <p className="mb-1">Bank: <strong>{order.paymentBankName}</strong></p>}
+                    <p className="mb-1">Account No: <strong className="font-mono">{order.paymentBankAcct}</strong></p>
+                    {order.paymentAcctName && <p className="mb-1">Account Name: <strong>{order.paymentAcctName}</strong></p>}
+                    <p className="mt-2">Amount: <strong className="text-lg">GHS {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}</strong></p>
+                    <p className="text-xs mt-1 text-yellow-700">Reference: <span className="font-mono">{paymentRef}</span></p>
+                  </div>
+                ) : order.paymentMethod === 'momo' && order.paymentMomoNumber ? (
+                  <div className="bg-yellow-50 border border-yellow-300 rounded-xl px-4 py-4 text-sm text-yellow-900 mb-4 mt-2">
+                    <p className="font-semibold mb-3">📱 Mobile Money Details</p>
+                    {order.paymentMomoProvider && <p className="mb-1">Provider: <strong>{order.paymentMomoProvider}</strong></p>}
+                    <p className="mb-1">Number: <strong className="font-mono">{order.paymentMomoNumber}</strong></p>
+                    {order.paymentAcctName && <p className="mb-1">Account Name: <strong>{order.paymentAcctName}</strong></p>}
+                    <p className="mt-2">Amount: <strong className="text-lg">GHS {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}</strong></p>
+                    <p className="text-xs mt-1 text-yellow-700">Reference: <span className="font-mono">{paymentRef}</span></p>
+                  </div>
+                ) : (
+                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-2 text-center mb-4">
+                    <span className="text-3xl block mb-2">💳</span>
+                    <p className="text-blue-800 font-semibold text-sm mb-1">
+                      Pay GHS{' '}
+                      {typeof order.amountGhs === 'number' ? order.amountGhs.toFixed(2) : order.amountGhs}{' '}
+                      using your selected payment method.
+                    </p>
+                    <p className="text-blue-600 text-xs">Once you have made the payment, click the button below.</p>
+                  </div>
+                )}
                 <button
                   onClick={handleSentPayment}
                   disabled={sending}
