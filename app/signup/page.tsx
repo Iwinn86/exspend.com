@@ -1,12 +1,24 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { registerUser } from '@/app/lib/auth';
+import { registerUser, getCurrentUser } from '@/app/lib/auth';
 
 export default function SignupPage() {
   const router = useRouter();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      router.replace('/spend');
+    } else {
+      setMounted(true);
+    }
+  }, [router]);
+
+  if (!mounted) return null;
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');

@@ -97,7 +97,7 @@ export default function SellPage() {
         setBtcUsd(pricesData.btcUsd ?? 0);
         setBnbUsd(pricesData.bnbUsd ?? 0);
         setEthUsd(pricesData.ethUsd ?? 0);
-        setGhsPerUsd(settingsData.settings?.ghsPerUsd ?? 0);
+        setGhsPerUsd(settingsData.settings?.sellRateGhsPerUsd ?? settingsData.settings?.ghsPerUsd ?? 0);
         setWalletAddresses(settingsData.settings?.walletAddresses ?? {});
       } catch {
         setError('Failed to load rates. Please refresh.');

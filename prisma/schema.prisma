@@ -135,18 +135,20 @@ model ExchangeRate {
 }
 
 model WalletSettings {
-  id           String   @id @default("singleton")
-  USDT_TRC20   String   @default("")
-  USDT_BEP20   String   @default("")
-  USDT_POLYGON String   @default("")
-  USDC_BEP20   String   @default("")
-  USDC_POLYGON String   @default("")
-  BTC          String   @default("")
-  BNB          String   @default("")
-  ETH          String   @default("")
-  BINANCE_PAY  String   @default("")
-  BYBIT_PAY    String   @default("")
-  updatedAt    DateTime @updatedAt
+  id                String   @id @default("singleton")
+  USDT_TRC20        String   @default("")
+  USDT_BEP20        String   @default("")
+  USDT_POLYGON      String   @default("")
+  USDC_BEP20        String   @default("")
+  USDC_POLYGON      String   @default("")
+  BTC               String   @default("")
+  BNB               String   @default("")
+  ETH               String   @default("")
+  BINANCE_PAY       String   @default("")
+  BYBIT_PAY         String   @default("")
+  buyRateGhsPerUsd  Float?
+  sellRateGhsPerUsd Float?
+  updatedAt         DateTime @updatedAt
 }
 
 model DataBundle {

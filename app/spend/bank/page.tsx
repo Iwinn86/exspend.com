@@ -42,7 +42,7 @@ export default function BankPage() {
       fetch('/api/crypto-prices').then(r => r.json()).catch(() => null),
     ]).then(([settingsData, pricesData]) => {
       setRates({
-        ghsPerUsd: settingsData?.settings?.ghsPerUsd ?? DEFAULT_LIVE_RATES.ghsPerUsd,
+        ghsPerUsd: settingsData?.settings?.sellRateGhsPerUsd ?? settingsData?.settings?.ghsPerUsd ?? DEFAULT_LIVE_RATES.ghsPerUsd,
         btcUsd: pricesData?.btcUsd ?? DEFAULT_LIVE_RATES.btcUsd,
         bnbUsd: pricesData?.bnbUsd ?? DEFAULT_LIVE_RATES.bnbUsd,
         ethUsd: pricesData?.ethUsd ?? DEFAULT_LIVE_RATES.ethUsd,
@@ -246,7 +246,6 @@ export default function BankPage() {
           </p>
           <p className="text-xs text-gray-500">Rate: 1 USD = {rates.ghsPerUsd} GHS (admin rate) — locked at confirmation</p>
           <p>Network fee: included</p>
-          <p>Daily limit: 30,000 GHS per account</p>
 
           {/* Daily Quota */}
           <DailyQuotaDisplay currentAmount={amountNum} />
