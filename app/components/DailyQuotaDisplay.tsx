@@ -10,6 +10,8 @@ type QuotaData = {
   kycVerified?: boolean;
 };
 
+const VERIFIED_DAILY_LIMIT = 30000;
+
 export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: number }) {
   const [quota, setQuota] = useState<QuotaData | null>(null);
 
@@ -33,7 +35,7 @@ export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: n
 
   const usedPercent = Math.min(100, (quota.totalSpent / quota.dailyLimit) * 100);
   const wouldExceed = currentAmount && currentAmount > quota.remaining;
-  const isVerified = quota.dailyLimit >= 30000;
+  const isVerified = quota.dailyLimit >= VERIFIED_DAILY_LIMIT;
 
   return (
     <div className={`rounded-xl px-4 py-3 text-sm flex flex-col gap-1 ${wouldExceed ? 'bg-red-50 border border-red-200 text-red-900' : 'bg-blue-50 border border-blue-100 text-blue-900'}`}>
