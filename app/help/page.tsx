@@ -219,22 +219,6 @@ function HelpPageContent() {
     }
   }
 
-  async function handleReopenTicket(ticketId: string) {
-    try {
-      const res = await fetch(`/api/help/tickets/${ticketId}/reopen`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        fetch('/api/help/tickets', { headers: { Authorization: `Bearer ${token}` } })
-          .then(r => r.json())
-          .then(d => setTickets(d.tickets ?? []));
-      }
-    } catch {
-      // ignore
-    }
-  }
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1 className="text-3xl font-bold text-green-900 mb-1">Help & Support</h1>
@@ -374,13 +358,7 @@ function HelpPageContent() {
                       {/* Closed ticket banner */}
                       {isClosed && (
                         <div className="px-4 py-3 bg-gray-100 border-t border-gray-200 text-center">
-                          <p className="text-sm text-gray-500 mb-2">🔒 This ticket has been resolved and closed.</p>
-                          <button
-                            onClick={() => handleReopenTicket(ticket.id)}
-                            className="text-sm text-green-700 font-medium hover:underline"
-                          >
-                            Reopen Ticket
-                          </button>
+                          <p className="text-sm text-gray-500">🔒 This ticket has been resolved and closed by support.</p>
                         </div>
                       )}
 
