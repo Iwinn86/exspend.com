@@ -29,6 +29,9 @@ export default function AdminReferralsPage() {
   const [loading, setLoading] = useState(true);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'pending' | 'approved' | 'sent'>('all');
+  const [ineligibleOpen, setIneligibleOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   function loadRewards() {
     const token = getToken();
@@ -79,15 +82,22 @@ export default function AdminReferralsPage() {
 
   const filtered = filter === 'all' ? rewards : rewards.filter(r => r.status === filter);
 
-  const eligible = filtered.filter(r =>
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Section counts from full filtered list (for accurate headers)
+  const totalEligible = filtered.filter(r => r.referrer.kycVerified && r.referredUser.kycVerified && r.status !== 'sent').length;
+  const totalSent = filtered.filter(r => r.status === 'sent').length;
+  const totalIneligible = filtered.filter(r => !r.referrer.kycVerified || !r.referredUser.kycVerified).length;
+
+  // Section items from current page only
+  const eligible = paged.filter(r =>
     r.referrer.kycVerified && r.referredUser.kycVerified && r.status !== 'sent'
   );
-  const sent = filtered.filter(r => r.status === 'sent');
-  const ineligible = filtered.filter(r =>
+  const sent = paged.filter(r => r.status === 'sent');
+  const ineligible = paged.filter(r =>
     !r.referrer.kycVerified || !r.referredUser.kycVerified
   );
-
-  const [ineligibleOpen, setIneligibleOpen] = useState(false);
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -95,7 +105,7 @@ export default function AdminReferralsPage() {
         <h1 className="text-green-900 text-2xl font-bold">Referral Rewards</h1>
         <select
           value={filter}
-          onChange={e => setFilter(e.target.value as typeof filter)}
+          onChange={e => { setFilter(e.target.value as typeof filter); setCurrentPage(1); }}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         >
           <option value="all">All</option>
@@ -118,9 +128,9 @@ export default function AdminReferralsPage() {
       ) : (
         <div className="flex flex-col gap-8">
           {/* Eligible section */}
-          {eligible.length > 0 && (
+          {totalEligible > 0 && (
             <div>
-              <h2 className="text-base font-semibold text-gray-700 mb-3">✅ Eligible for Bonus ({eligible.length})</h2>
+              <h2 className="text-base font-semibold text-gray-700 mb-3">✅ Eligible for Bonus ({totalEligible})</h2>
               <div className="flex flex-col gap-4">
                 {eligible.map(reward => (
                   <div key={reward.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
@@ -163,9 +173,9 @@ export default function AdminReferralsPage() {
           )}
 
           {/* Sent section */}
-          {sent.length > 0 && (
+          {totalSent > 0 && (
             <div>
-              <h2 className="text-base font-semibold text-gray-700 mb-3">📤 Sent ({sent.length})</h2>
+              <h2 className="text-base font-semibold text-gray-700 mb-3">📤 Sent ({totalSent})</h2>
               <div className="flex flex-col gap-4">
                 {sent.map(reward => (
                   <div key={reward.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm opacity-75">
@@ -192,14 +202,14 @@ export default function AdminReferralsPage() {
           )}
 
           {/* Ineligible section */}
-          {ineligible.length > 0 && (
+          {totalIneligible > 0 && (
             <div>
               <button
                 onClick={() => setIneligibleOpen(o => !o)}
                 className="flex items-center gap-2 text-base font-semibold text-gray-500 mb-3 hover:text-gray-700 transition-colors"
               >
                 <span>{ineligibleOpen ? '▾' : '▸'}</span>
-                <span>⚠️ Not Eligible ({ineligible.length})</span>
+                <span>⚠️ Not Eligible ({totalIneligible})</span>
               </button>
               {ineligibleOpen && (
                 <div className="flex flex-col gap-4">
@@ -239,6 +249,26 @@ export default function AdminReferralsPage() {
 
           {eligible.length === 0 && sent.length === 0 && ineligible.length === 0 && (
             <p className="text-gray-400 text-sm">No referral rewards found.</p>
+          )}
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-6">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
+                ← Prev
+              </button>
+              <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+              >
+                Next →
+              </button>
+            </div>
           )}
         </div>
       )}

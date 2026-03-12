@@ -29,6 +29,8 @@ const KYC_LABEL: Record<AdminUser['kycStatus'], string> = {
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   useEffect(() => {
     const token = getToken();
@@ -45,6 +47,9 @@ export default function AdminUsersPage() {
     return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
   });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-gray-800 mb-2">Users Management</h1>
@@ -57,7 +62,7 @@ export default function AdminUsersPage() {
         type="text"
         placeholder="Search by name or email…"
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
         className="w-full mb-4 px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
       />
 
@@ -80,7 +85,7 @@ export default function AdminUsersPage() {
                   <td colSpan={5} className="px-4 py-8 text-center text-gray-400">No users found</td>
                 </tr>
               ) : (
-                filtered.map(user => (
+                paged.map(user => (
                   <tr key={user.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-800 font-medium">{user.name}</td>
                     <td className="px-4 py-3 text-gray-600">{user.email}</td>
@@ -100,6 +105,26 @@ export default function AdminUsersPage() {
           </table>
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

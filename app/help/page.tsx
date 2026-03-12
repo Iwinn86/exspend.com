@@ -91,6 +91,8 @@ function HelpPageContent() {
   const [ticketsError, setTicketsError] = useState('');
   const [expandedTicket, setExpandedTicket] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   const [orderId, setOrderId] = useState('');
   const [subject, setSubject] = useState('');
@@ -284,7 +286,12 @@ function HelpPageContent() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {tickets.map(ticket => {
+            {(() => {
+              const totalPages = Math.max(1, Math.ceil(tickets.length / PAGE_SIZE));
+              const paged = tickets.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+              return (
+                <>
+                  {paged.map(ticket => {
               const isClosed = ticket.status === 'resolved' || ticket.status === 'closed';
               return (
                 <div
@@ -410,6 +417,28 @@ function HelpPageContent() {
                 </div>
               );
             })}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-3 mt-6">
+                      <button
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                      >
+                        ← Prev
+                      </button>
+                      <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
         )}
       </section>

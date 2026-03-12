@@ -32,6 +32,8 @@ export default function AdminKycPage() {
   const [rejectReason, setRejectReason] = useState('');
   const [actionMsg, setActionMsg] = useState<string | null>(null);
   const [expandedDocs, setExpandedDocs] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   function loadKyc() {
     const token = getToken();
@@ -87,7 +89,12 @@ export default function AdminKycPage() {
         <p className="text-gray-400 text-sm">No KYC submissions yet.</p>
       ) : (
         <div className="flex flex-col gap-4">
-          {entries.map(entry => (
+          {(() => {
+            const totalPages = Math.max(1, Math.ceil(entries.length / PAGE_SIZE));
+            const paged = entries.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+            return (
+              <>
+                {paged.map(entry => (
             <div key={entry.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -213,6 +220,28 @@ export default function AdminKycPage() {
               )}
             </div>
           ))}
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-3 mt-6">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                    >
+                      ← Prev
+                    </button>
+                    <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
     </div>
