@@ -69,6 +69,8 @@ export default function ProfilePage() {
   };
   const [referral, setReferral] = useState<ReferralStats | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+  const [rewardPage, setRewardPage] = useState(1);
+  const REWARD_PAGE_SIZE = 10;
 
   function copyReferralCode() {
     if (referral?.referralCode) {
@@ -455,21 +457,48 @@ export default function ProfilePage() {
                     <div>
                       <p className="text-xs font-medium text-gray-600 mb-2">Recent Referrals</p>
                       <div className="flex flex-col gap-2">
-                        {referral.rewards.slice(0, 5).map(r => (
-                          <div key={r.id} className="bg-white rounded-lg px-3 py-2 flex items-center justify-between border border-gray-100 text-sm">
-                            <div>
-                              <span className="font-medium text-gray-800">{r.referredUser?.name ?? 'Friend'}</span>
-                              <span className="ml-2 text-xs text-gray-400">{r.rewardNetwork.toUpperCase()}</span>
-                            </div>
-                            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                              r.status === 'sent' ? 'bg-green-100 text-green-700' :
-                              r.status === 'approved' ? 'bg-blue-100 text-blue-700' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>
-                              {r.status === 'sent' ? '✅ Sent' : r.status === 'approved' ? '✓ Approved' : '⏳ Pending'}
-                            </span>
-                          </div>
-                        ))}
+                        {(() => {
+                          const totalRewardPages = Math.max(1, Math.ceil(referral.rewards.length / REWARD_PAGE_SIZE));
+                          const pagedRewards = referral.rewards.slice((rewardPage - 1) * REWARD_PAGE_SIZE, rewardPage * REWARD_PAGE_SIZE);
+                          return (
+                            <>
+                              {pagedRewards.map(r => (
+                                <div key={r.id} className="bg-white rounded-lg px-3 py-2 flex items-center justify-between border border-gray-100 text-sm">
+                                  <div>
+                                    <span className="font-medium text-gray-800">{r.referredUser?.name ?? 'Friend'}</span>
+                                    <span className="ml-2 text-xs text-gray-400">{r.rewardNetwork.toUpperCase()}</span>
+                                  </div>
+                                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                                    r.status === 'sent' ? 'bg-green-100 text-green-700' :
+                                    r.status === 'approved' ? 'bg-blue-100 text-blue-700' :
+                                    'bg-yellow-100 text-yellow-700'
+                                  }`}>
+                                    {r.status === 'sent' ? '✅ Sent' : r.status === 'approved' ? '✓ Approved' : '⏳ Pending'}
+                                  </span>
+                                </div>
+                              ))}
+                              {totalRewardPages > 1 && (
+                                <div className="flex items-center justify-center gap-3 mt-2">
+                                  <button
+                                    onClick={() => setRewardPage(p => Math.max(1, p - 1))}
+                                    disabled={rewardPage === 1}
+                                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                                  >
+                                    ← Prev
+                                  </button>
+                                  <span className="text-sm text-gray-600">Page {rewardPage} of {totalRewardPages}</span>
+                                  <button
+                                    onClick={() => setRewardPage(p => Math.min(totalRewardPages, p + 1))}
+                                    disabled={rewardPage === totalRewardPages}
+                                    className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+                                  >
+                                    Next →
+                                  </button>
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </div>
                     </div>
                   )}

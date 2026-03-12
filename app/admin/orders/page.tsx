@@ -68,6 +68,8 @@ export default function AdminOrdersPage() {
   const [noteInputs, setNoteInputs] = useState<Record<string, string>>({});
   const [expandedNotes, setExpandedNotes] = useState<Record<string, boolean>>({});
   const [savingNote, setSavingNote] = useState<Record<string, boolean>>({});
+  const [currentPage, setCurrentPage] = useState(1);
+  const PAGE_SIZE = 10;
 
   async function loadOrders() {
     setLoading(true);
@@ -143,6 +145,9 @@ export default function AdminOrdersPage() {
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   const tabs: { label: string; value: FilterTab }[] = [
     { label: 'All', value: 'all' },
     { label: 'Waiting', value: 'waiting' },
@@ -175,7 +180,7 @@ export default function AdminOrdersPage() {
         type="text"
         placeholder="Search by recipient, service, user or order ID…"
         value={search}
-        onChange={e => setSearch(e.target.value)}
+        onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
         className="w-full mb-4 px-4 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
       />
 
@@ -183,7 +188,7 @@ export default function AdminOrdersPage() {
         {tabs.map(t => (
           <button
             key={t.value}
-            onClick={() => setFilter(t.value)}
+            onClick={() => { setFilter(t.value); setCurrentPage(1); }}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
               filter === t.value
                 ? 'bg-green-600 text-white'
@@ -237,7 +242,7 @@ export default function AdminOrdersPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered.map(order => (
+                  paged.map(order => (
                     <tr key={order.id} className="hover:bg-gray-50">
                       <td className="px-4 py-3 font-mono text-xs text-gray-600 whitespace-nowrap">
                         {shortId(order.id)}
@@ -401,6 +406,26 @@ export default function AdminOrdersPage() {
           )}
         </div>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            Next →
+          </button>
+        </div>
+      )}
     </div>
   );
 }

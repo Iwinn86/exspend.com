@@ -80,12 +80,15 @@ function isFailedOrCancelled(status: OrderStatus) {
   return status === 'failed' || status === 'cancelled';
 }
 
+const PAGE_SIZE = 10;
+
 export default function OrdersPage() {
   const [activeTab, setActiveTab] = useState<Tab>('all');
   const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     const t = getToken();
@@ -113,6 +116,9 @@ export default function OrdersPage() {
       ? orders.filter((o) => isFailedOrCancelled(o.status))
       : orders.filter((o) => o.status === activeTab);
 
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const paged = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   if (!token && !loading) {
     return (
       <div className="bg-green-50 rounded-2xl p-10 shadow-sm text-center">
@@ -135,7 +141,7 @@ export default function OrdersPage() {
         {tabs.map(({ id, label }) => (
           <button
             key={id}
-            onClick={() => setActiveTab(id)}
+            onClick={() => { setActiveTab(id); setCurrentPage(1); }}
             className={`px-4 py-1 text-sm font-medium whitespace-nowrap transition-colors rounded-full ${
               activeTab === id
                 ? 'bg-green-700 text-white'
@@ -176,7 +182,7 @@ export default function OrdersPage() {
         </div>
       ) : (
         <div className="flex flex-col gap-3">
-          {filtered.map((order) => (
+          {paged.map((order) => (
             <div
               key={order.id}
               className={`bg-white rounded-xl shadow-sm p-4 border-l-4 ${BORDER_COLOR[order.status]}`}
@@ -227,17 +233,29 @@ export default function OrdersPage() {
                 >
                   View Details →
                 </Link>
-                {(order.status === 'successful' || order.status === 'failed' || order.status === 'cancelled') && (
-                  <Link
-                    href={`/help?orderId=${order.id}`}
-                    className="inline-block text-xs font-semibold text-orange-700 border border-orange-300 hover:bg-orange-50 px-3 py-1 rounded-lg transition-colors"
-                  >
-                    🎫 Open Ticket
-                  </Link>
-                )}
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-3 mt-6">
+          <button
+            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+            disabled={currentPage === 1}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            ← Prev
+          </button>
+          <span className="text-sm text-gray-600">Page {currentPage} of {totalPages}</span>
+          <button
+            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+            disabled={currentPage === totalPages}
+            className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors"
+          >
+            Next →
+          </button>
         </div>
       )}
     </div>
