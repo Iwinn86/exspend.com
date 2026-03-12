@@ -60,6 +60,12 @@ function RateSection() {
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [history, setHistory] = useState<RateRecord[]>([]);
 
+  // Buy/sell specific rates
+  const [buyRateGhsPerUsd, setBuyRateGhsPerUsd] = useState('');
+  const [sellRateGhsPerUsd, setSellRateGhsPerUsd] = useState('');
+  const [savingBuySell, setSavingBuySell] = useState(false);
+  const [buySellMessage, setBuySellMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
   const loadHistory = useCallback(async () => {
     const res = await fetch('/api/rates').catch(() => null);
     if (res?.ok) {
@@ -68,7 +74,16 @@ function RateSection() {
     }
   }, []);
 
-  useEffect(() => { loadHistory(); }, [loadHistory]);
+  const loadBuySellRates = useCallback(async () => {
+    const res = await fetch('/api/settings').catch(() => null);
+    if (res?.ok) {
+      const data = await res.json();
+      if (data.settings?.buyRateGhsPerUsd) setBuyRateGhsPerUsd(String(data.settings.buyRateGhsPerUsd));
+      if (data.settings?.sellRateGhsPerUsd) setSellRateGhsPerUsd(String(data.settings.sellRateGhsPerUsd));
+    }
+  }, []);
+
+  useEffect(() => { loadHistory(); loadBuySellRates(); }, [loadHistory, loadBuySellRates]);
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -96,88 +111,169 @@ function RateSection() {
     }
   }
 
-  return (
-    <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h2 className="text-lg font-semibold text-gray-800">💱 Set Daily GHS/USD Rate</h2>
-        <p className="text-xs text-gray-500 mt-0.5">⚠️ Rate changes only affect new orders.</p>
-      </div>
-      <div className="p-6 grid md:grid-cols-2 gap-8">
-        {/* Form */}
-        <form onSubmit={handleSave} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">GHS per USD</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0.01"
-              required
-              value={ghsPerUsd}
-              onChange={e => setGhsPerUsd(e.target.value)}
-              placeholder="e.g. 15.80"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
-            <input
-              type="text"
-              value={note}
-              onChange={e => setNote(e.target.value)}
-              placeholder="e.g. Market update"
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-            />
-          </div>
-          {message && (
-            <p className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
-              {message.text}
-            </p>
-          )}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-2.5 bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white rounded-lg font-medium text-sm transition-colors"
-          >
-            {saving ? 'Saving…' : 'Save Rate'}
-          </button>
-        </form>
+  async function handleSaveBuySellRates(e: React.FormEvent) {
+    e.preventDefault();
+    setSavingBuySell(true);
+    setBuySellMessage(null);
+    try {
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({
+          walletAddresses: {},
+          ...(buyRateGhsPerUsd && { buyRateGhsPerUsd: parseFloat(buyRateGhsPerUsd) }),
+          ...(sellRateGhsPerUsd && { sellRateGhsPerUsd: parseFloat(sellRateGhsPerUsd) }),
+        }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBuySellMessage({ type: 'success', text: '✅ Buy/Sell rates saved!' });
+      } else {
+        setBuySellMessage({ type: 'error', text: data.error ?? 'Failed to save rates.' });
+      }
+    } catch {
+      setBuySellMessage({ type: 'error', text: 'Network error. Please try again.' });
+    } finally {
+      setSavingBuySell(false);
+    }
+  }
 
-        {/* History table */}
-        <div>
-          <h3 className="text-sm font-semibold text-gray-600 mb-3">Recent Rate History</h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs">
-              <thead className="bg-gray-50 text-gray-500 uppercase">
-                <tr>
-                  <th className="px-3 py-2 text-left">Rate</th>
-                  <th className="px-3 py-2 text-left">Set By</th>
-                  <th className="px-3 py-2 text-left">Note</th>
-                  <th className="px-3 py-2 text-left">Date</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {history.length === 0 ? (
+  return (
+    <>
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800">💱 Set Daily GHS/USD Rate</h2>
+          <p className="text-xs text-gray-500 mt-0.5">⚠️ Rate changes only affect new orders.</p>
+        </div>
+        <div className="p-6 grid md:grid-cols-2 gap-8">
+          {/* Form */}
+          <form onSubmit={handleSave} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">GHS per USD</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                required
+                value={ghsPerUsd}
+                onChange={e => setGhsPerUsd(e.target.value)}
+                placeholder="e.g. 15.80"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Note (optional)</label>
+              <input
+                type="text"
+                value={note}
+                onChange={e => setNote(e.target.value)}
+                placeholder="e.g. Market update"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+            {message && (
+              <p className={`text-sm ${message.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                {message.text}
+              </p>
+            )}
+            <button
+              type="submit"
+              disabled={saving}
+              className="w-full py-2.5 bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white rounded-lg font-medium text-sm transition-colors"
+            >
+              {saving ? 'Saving…' : 'Save Rate'}
+            </button>
+          </form>
+
+          {/* History table */}
+          <div>
+            <h3 className="text-sm font-semibold text-gray-600 mb-3">Recent Rate History</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead className="bg-gray-50 text-gray-500 uppercase">
                   <tr>
-                    <td colSpan={4} className="px-3 py-4 text-center text-gray-400">No history yet</td>
+                    <th className="px-3 py-2 text-left">Rate</th>
+                    <th className="px-3 py-2 text-left">Set By</th>
+                    <th className="px-3 py-2 text-left">Note</th>
+                    <th className="px-3 py-2 text-left">Date</th>
                   </tr>
-                ) : (
-                  history.map(r => (
-                    <tr key={r.id} className="hover:bg-gray-50">
-                      <td className="px-3 py-2 font-semibold text-green-700">GHS {r.ghsPerUsd.toFixed(2)}</td>
-                      <td className="px-3 py-2 text-gray-700 truncate max-w-[100px]">{r.setByAdmin}</td>
-                      <td className="px-3 py-2 text-gray-500">{r.note ?? '—'}</td>
-                      <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
-                        {new Date(r.createdAt).toLocaleDateString()}
-                      </td>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {history.length === 0 ? (
+                    <tr>
+                      <td colSpan={4} className="px-3 py-4 text-center text-gray-400">No history yet</td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+                  ) : (
+                    history.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 font-semibold text-green-700">GHS {r.ghsPerUsd.toFixed(2)}</td>
+                        <td className="px-3 py-2 text-gray-700 truncate max-w-[100px]">{r.setByAdmin}</td>
+                        <td className="px-3 py-2 text-gray-500">{r.note ?? '—'}</td>
+                        <td className="px-3 py-2 text-gray-500 whitespace-nowrap">
+                          {new Date(r.createdAt).toLocaleDateString()}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+
+      {/* Buy / Sell specific rates */}
+      <section className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h2 className="text-lg font-semibold text-gray-800">💹 Buy &amp; Sell/Spend Rates (GHS per USD)</h2>
+          <p className="text-xs text-gray-500 mt-0.5">Set separate rates for buy orders vs. sell/spend orders.</p>
+        </div>
+        <div className="p-6">
+          <form onSubmit={handleSaveBuySellRates} className="grid md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Buy Rate (GHS per USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={buyRateGhsPerUsd}
+                onChange={e => setBuyRateGhsPerUsd(e.target.value)}
+                placeholder="e.g. 16.00"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Applied to Buy Crypto orders.</p>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Sell / Spend Rate (GHS per USD)</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0.01"
+                value={sellRateGhsPerUsd}
+                onChange={e => setSellRateGhsPerUsd(e.target.value)}
+                placeholder="e.g. 15.50"
+                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+              <p className="text-xs text-gray-400 mt-1">Applied to Sell &amp; Spend orders.</p>
+            </div>
+            {buySellMessage && (
+              <p className={`md:col-span-2 text-sm ${buySellMessage.type === 'success' ? 'text-green-600' : 'text-red-500'}`}>
+                {buySellMessage.text}
+              </p>
+            )}
+            <div className="md:col-span-2">
+              <button
+                type="submit"
+                disabled={savingBuySell}
+                className="px-6 py-2.5 bg-green-700 hover:bg-green-800 disabled:bg-green-400 text-white rounded-lg font-medium text-sm transition-colors"
+              >
+                {savingBuySell ? 'Saving…' : 'Save Buy/Sell Rates'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </section>
+    </>
   );
 }
 

@@ -29,6 +29,8 @@ export async function GET() {
       settings: {
         walletAddresses,
         ghsPerUsd: latestRate?.ghsPerUsd ?? 15.5,
+        buyRateGhsPerUsd: settings?.buyRateGhsPerUsd ?? latestRate?.ghsPerUsd ?? 15.5,
+        sellRateGhsPerUsd: settings?.sellRateGhsPerUsd ?? latestRate?.ghsPerUsd ?? 15.5,
         updatedAt: settings?.updatedAt ?? new Date(),
       },
     });
@@ -37,6 +39,8 @@ export async function GET() {
       settings: {
         walletAddresses: DEFAULT_WALLET_ADDRESSES,
         ghsPerUsd: 15.5,
+        buyRateGhsPerUsd: 15.5,
+        sellRateGhsPerUsd: 15.5,
         updatedAt: new Date(),
       },
     });
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { walletAddresses } = body;
+    const { walletAddresses, buyRateGhsPerUsd, sellRateGhsPerUsd } = body;
 
     if (!walletAddresses || typeof walletAddresses !== 'object') {
       return NextResponse.json({ error: 'walletAddresses object is required' }, { status: 400 });
@@ -72,6 +76,8 @@ export async function POST(request: NextRequest) {
         ETH: walletAddresses.ETH ?? '',
         BINANCE_PAY: walletAddresses.BINANCE_PAY ?? '',
         BYBIT_PAY: walletAddresses.BYBIT_PAY ?? '',
+        ...(buyRateGhsPerUsd !== undefined && { buyRateGhsPerUsd: parseFloat(buyRateGhsPerUsd) }),
+        ...(sellRateGhsPerUsd !== undefined && { sellRateGhsPerUsd: parseFloat(sellRateGhsPerUsd) }),
       },
       update: {
         ...(walletAddresses.USDT_TRC20 !== undefined && { USDT_TRC20: walletAddresses.USDT_TRC20 }),
@@ -84,6 +90,8 @@ export async function POST(request: NextRequest) {
         ...(walletAddresses.ETH !== undefined && { ETH: walletAddresses.ETH }),
         ...(walletAddresses.BINANCE_PAY !== undefined && { BINANCE_PAY: walletAddresses.BINANCE_PAY }),
         ...(walletAddresses.BYBIT_PAY !== undefined && { BYBIT_PAY: walletAddresses.BYBIT_PAY }),
+        ...(buyRateGhsPerUsd !== undefined && { buyRateGhsPerUsd: parseFloat(buyRateGhsPerUsd) }),
+        ...(sellRateGhsPerUsd !== undefined && { sellRateGhsPerUsd: parseFloat(sellRateGhsPerUsd) }),
       },
     });
 
@@ -104,6 +112,8 @@ export async function POST(request: NextRequest) {
           BYBIT_PAY: settings.BYBIT_PAY,
         },
         ghsPerUsd: latestRate?.ghsPerUsd ?? 15.5,
+        buyRateGhsPerUsd: settings.buyRateGhsPerUsd ?? latestRate?.ghsPerUsd ?? 15.5,
+        sellRateGhsPerUsd: settings.sellRateGhsPerUsd ?? latestRate?.ghsPerUsd ?? 15.5,
         updatedAt: settings.updatedAt,
       },
     });

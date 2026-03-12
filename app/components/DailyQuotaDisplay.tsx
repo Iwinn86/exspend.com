@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { getToken } from '@/app/lib/auth';
 
 type QuotaData = {
@@ -59,7 +60,12 @@ export default function DailyQuotaDisplay({ currentAmount }: { currentAmount?: n
         <p className="text-xs">After this order: <strong>GHS {afterThis.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} remaining</strong></p>
       )}
       {!isVerified && (
-        <p className="text-xs text-orange-700 mt-1">Verify your identity to increase limit to GHS 30,000</p>
+        <p className="text-xs text-orange-700 mt-1">
+          Verify your identity to increase limit to GHS 30,000 —{' '}
+          <Link href="/profile" className="underline font-semibold hover:text-orange-900">
+            Verify your identity →
+          </Link>
+        </p>
       )}
       {wouldExceed && (
         <p className="text-red-700 font-semibold text-xs mt-1">⚠️ This amount exceeds your daily quota. Please reduce the amount.</p>

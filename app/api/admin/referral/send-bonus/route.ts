@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
     if (!reward) {
       return NextResponse.json({ error: 'Reward not found' }, { status: 404 });
     }
-    if (reward.status !== 'approved') {
-      return NextResponse.json({ error: 'Reward must be approved before marking as sent' }, { status: 400 });
+    if (reward.status === 'sent') {
+      return NextResponse.json({ error: 'Reward has already been marked as sent' }, { status: 400 });
     }
 
     const updated = await prisma.referralReward.update({

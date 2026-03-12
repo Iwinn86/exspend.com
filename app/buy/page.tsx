@@ -57,11 +57,14 @@ type AdminPaymentSetting = {
   momoAcctName?: string | null;
 };
 
-const MOMO_PROVIDERS: { key: string; label: MomoProvider; color: string; emoji: string }[] = [
-  { key: 'mtn_details', label: 'MTN', color: 'border-yellow-400 bg-yellow-50', emoji: '📡' },
-  { key: 'telecel_details', label: 'Telecel', color: 'border-red-400 bg-red-50', emoji: '📶' },
-  { key: 'airteltigo_details', label: 'AirtelTigo', color: 'border-orange-400 bg-orange-50', emoji: '📲' },
+const MOMO_PROVIDERS: { key: string; label: MomoProvider; color: string; emoji: string; imgSrc: string }[] = [
+  { key: 'mtn_details', label: 'MTN', color: 'border-yellow-400 bg-yellow-50', emoji: '📡', imgSrc: '/mtn.png' },
+  { key: 'telecel_details', label: 'Telecel', color: 'border-red-400 bg-red-50', emoji: '📶', imgSrc: '/telecel.png' },
+  { key: 'airteltigo_details', label: 'AirtelTigo', color: 'border-orange-400 bg-orange-50', emoji: '📲', imgSrc: '/airteltigo.png' },
 ];
+
+const PENDING_BUY_ORDER_KEY = 'exspend_pending_buy_order';
+const ORDER_TIMEOUT_SECONDS = 30 * 60;
 
 export default function BuyPage() {
   const router = useRouter();
@@ -94,10 +97,53 @@ export default function BuyPage() {
 
   // Step 4 – payment instructions
   const [orderId, setOrderId] = useState<string | null>(null);
-  const [timeLeft, setTimeLeft] = useState(30 * 60);
+  const [timeLeft, setTimeLeft] = useState(ORDER_TIMEOUT_SECONDS);
   const [confirmingPaid, setConfirmingPaid] = useState(false);
   const [cancellingOrder, setCancellingOrder] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+
+  // Restore pending order from localStorage on mount
+  useEffect(() => {
+    const saved = typeof window !== 'undefined' ? localStorage.getItem(PENDING_BUY_ORDER_KEY) : null;
+    if (!saved) return;
+    try {
+      const parsed = JSON.parse(saved);
+      if (!parsed.orderId) return;
+
+      const timeLeftCalc = ORDER_TIMEOUT_SECONDS - Math.floor((Date.now() - new Date(parsed.orderCreatedAt).getTime()) / 1000);
+      if (timeLeftCalc <= 0) {
+        localStorage.removeItem(PENDING_BUY_ORDER_KEY);
+        return;
+      }
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem('exspend_token') : null;
+      if (!token) return;
+
+      fetch(`/api/orders/${parsed.orderId}`, { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(data => {
+          const order = data.order ?? data;
+          if (['successful', 'failed', 'cancelled'].includes(order.status)) {
+            localStorage.removeItem(PENDING_BUY_ORDER_KEY);
+            router.push(`/orders/${parsed.orderId}`);
+            return;
+          }
+          setOrderId(parsed.orderId);
+          setStep(parsed.step ?? 4);
+          setSelectedPaymentMethod(parsed.selectedPaymentMethod ?? null);
+          setSelectedMomoProvider(parsed.selectedMomoProvider ?? null);
+          setAsset(parsed.asset ?? 'BTC');
+          setAmountGhs(parsed.amountGhs ?? '');
+          setWalletAddress(parsed.walletAddress ?? '');
+          setTimeLeft(Math.max(0, timeLeftCalc));
+        })
+        .catch(() => {});
+    } catch {
+      localStorage.removeItem(PENDING_BUY_ORDER_KEY);
+    }
+  // Run once on mount to restore any pending buy order from localStorage
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     async function loadData() {
@@ -115,7 +161,7 @@ export default function BuyPage() {
         setBtcUsd(pricesData.btcUsd ?? 0);
         setBnbUsd(pricesData.bnbUsd ?? 0);
         setEthUsd(pricesData.ethUsd ?? 0);
-        setGhsPerUsd(settingsData.settings?.ghsPerUsd ?? 0);
+        setGhsPerUsd(settingsData.settings?.buyRateGhsPerUsd ?? settingsData.settings?.ghsPerUsd ?? 0);
         setPaymentSettings(paymentData.paymentMethods ?? {});
       } catch {
         setError('Failed to load rates. Please refresh.');
@@ -211,8 +257,22 @@ export default function BuyPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || 'Failed to create order'); return; }
-      setOrderId(data.order.id);
+      const newOrderId = data.order.id;
+      setOrderId(newOrderId);
       setStep(4);
+      // Persist order to localStorage for page refresh recovery
+      if (typeof window !== 'undefined') {
+        localStorage.setItem(PENDING_BUY_ORDER_KEY, JSON.stringify({
+          orderId: newOrderId,
+          step: 4,
+          selectedPaymentMethod,
+          selectedMomoProvider,
+          asset,
+          amountGhs,
+          walletAddress: walletAddress.trim(),
+          orderCreatedAt: new Date().toISOString(),
+        }));
+      }
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -221,6 +281,7 @@ export default function BuyPage() {
   }
 
   function handleReset() {
+    if (typeof window !== 'undefined') localStorage.removeItem(PENDING_BUY_ORDER_KEY);
     setStep(0);
     setSelectedPaymentMethod(null);
     setSelectedMomoProvider(null);
@@ -229,14 +290,13 @@ export default function BuyPage() {
     setWalletAddress('');
     setWalletError(null);
     setOrderId(null);
-    setTimeLeft(30 * 60);
+    setTimeLeft(ORDER_TIMEOUT_SECONDS);
     setPaymentError(null);
     setError(null);
   }
 
   useEffect(() => {
     if (!orderId || step !== 4) return;
-    setTimeLeft(30 * 60);
     const interval = setInterval(() => {
       setTimeLeft(prev => {
         if (prev <= 1) { clearInterval(interval); return 0; }
@@ -244,7 +304,7 @@ export default function BuyPage() {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [orderId]);
+  }, [orderId, step]);
 
   async function handleConfirmPaid() {
     if (!orderId) return;
@@ -259,6 +319,7 @@ export default function BuyPage() {
       });
       const data = await res.json();
       if (!res.ok) { setPaymentError(data.error || 'Failed to confirm payment'); return; }
+      if (typeof window !== 'undefined') localStorage.removeItem(PENDING_BUY_ORDER_KEY);
       router.push(`/orders/${orderId}`);
     } catch {
       setPaymentError('Network error. Please try again.');
@@ -279,6 +340,7 @@ export default function BuyPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       });
       if (!res.ok) { const d = await res.json(); setPaymentError(d.error || 'Failed to cancel order'); return; }
+      if (typeof window !== 'undefined') localStorage.removeItem(PENDING_BUY_ORDER_KEY);
       router.push('/orders');
     } catch {
       setPaymentError('Network error. Please try again.');
@@ -406,7 +468,17 @@ export default function BuyPage() {
                             }`}
                           >
                             <div className="flex items-center gap-3">
-                              <span className="text-xl">{provider.emoji}</span>
+                              <img
+                                src={provider.imgSrc}
+                                alt={provider.label}
+                                className="h-8 w-8 object-contain"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).style.display = 'none';
+                                  const sibling = e.currentTarget.nextElementSibling as HTMLElement | null;
+                                  if (sibling) sibling.style.display = 'inline';
+                                }}
+                              />
+                              <span className="text-xl hidden">{provider.emoji}</span>
                               <div className="flex-1">
                                 <p className="font-semibold text-gray-900 text-sm">{provider.label}</p>
                                 {isSelected && providerSetting && (
