@@ -19,7 +19,7 @@ export default function LoginPage() {
     const result = await loginUser(email, password);
     setLoading(false);
     if (result.success) {
-      router.push('/spend');
+      router.replace('/spend');
     } else {
       setError(result.error ?? 'Login failed.');
     }

@@ -164,6 +164,7 @@ model HelpTicket {
   id            String       @id @default(uuid())
   userId        String
   user          User         @relation(fields: [userId], references: [id])
+  orderId       String?
   subject       String
   message       String
   attachmentUrl String?

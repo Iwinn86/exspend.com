@@ -20,16 +20,35 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { message, status, imageUrl } = body as { message: string; status?: string; imageUrl?: string };
-
-    if (!message?.trim()) {
-      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
-    }
+    const { message, resolve, imageUrl } = body as { message?: string; resolve?: boolean; imageUrl?: string };
 
     const ticket = await prisma.helpTicket.findUnique({ where: { id: ticketId } });
     if (!ticket) return NextResponse.json({ error: 'Ticket not found' }, { status: 404 });
     if (ticket.status === 'resolved' || ticket.status === 'closed') {
-      return NextResponse.json({ error: 'Ticket is closed' }, { status: 400 });
+      return NextResponse.json({ error: 'Ticket is already resolved — chat is closed' }, { status: 400 });
+    }
+
+    // Handle resolve-only action
+    if (resolve) {
+      await prisma.helpTicket.update({
+        where: { id: ticketId },
+        data: { status: 'resolved' },
+      });
+      // Notify user
+      await prisma.notification.create({
+        data: {
+          userId: ticket.userId,
+          recipientType: 'user',
+          title: '✅ Ticket Resolved',
+          message: `Your support ticket "${ticket.subject}" has been resolved.`,
+          link: '/help',
+        },
+      });
+      return NextResponse.json({ success: true, status: 'resolved' });
+    }
+
+    if (!message?.trim()) {
+      return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
     const reply = await prisma.helpReply.create({
@@ -41,32 +60,11 @@ export async function POST(
       },
     });
 
-    // Update ticket status if provided
-    if (status && ['open', 'in_progress', 'resolved', 'closed'].includes(status)) {
-      await prisma.helpTicket.update({
-        where: { id: ticketId },
-        data: { status: status as 'open' | 'in_progress' | 'resolved' | 'closed' },
-      });
-
-      // Notify user if ticket is resolved
-      if (status === 'resolved') {
-        const ticketWithUser = await prisma.helpTicket.findUnique({
-          where: { id: ticketId },
-          select: { userId: true, subject: true },
-        });
-        if (ticketWithUser) {
-          await prisma.notification.create({
-            data: {
-              userId: ticketWithUser.userId,
-              recipientType: 'user',
-              title: '✅ Ticket Resolved',
-              message: `Your support ticket "${ticketWithUser.subject}" has been resolved.`,
-              link: '/help',
-            },
-          });
-        }
-      }
-    }
+    // Mark in_progress when admin replies
+    await prisma.helpTicket.update({
+      where: { id: ticketId },
+      data: { status: 'in_progress' },
+    });
 
     return NextResponse.json({ reply }, { status: 201 });
   } catch (err) {
